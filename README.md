@@ -49,6 +49,18 @@ Proje, GitHub Actions (`.github/workflows/deploy-pwa.yml`) ile `main` dalına ya
 
 ---
 
+## 🔒 Güvenlik Mimarisi ve Çevre Değişkenleri
+
+1. **Sıfır-Gizli-Anahtar İlkesi (Zero Hardcoded Secrets):**
+   - Kaynak kodda veya Git geçmişinde hiçbir `Secret Key` veya veritabanı şifresi tutulmaz.
+   - İstemci ve Windows Masaüstü Ajanı yalnızca güvenli Supabase `Anon / Publishable Key` ile çalışır.
+   - Yerel yapılandırma için `.env.example` dosyasını `.env.local` veya `windows-agent/.env` olarak çoğaltabilirsiniz.
+
+2. **Dinamik Build Secrets:**
+   - GitHub Actions üzerinden `.exe` derlenirken GitHub Secrets'tan gelen değerler `windows-agent/build_secrets.py` modülü aracılığıyla derleme anında doğrudan ikili `.exe` içine gömülür ve Git geçmişine sızmaz.
+
+---
+
 ## 🛠️ Yerel Geliştirme
 
 ### PWA'yı Başlatma:
