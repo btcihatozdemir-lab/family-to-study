@@ -1,0 +1,152 @@
+name: Build Windows Agent (.EXE)
+
+on:
+  push:
+    paths:
+      - 'windows-agent/**'
+      - '.github/workflows/build-windows-agent.yml'
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies & PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r windows-agent/requirements.txt
+          pip install pyinstaller
+
+      - name: Configure Production Credentials in config.py
+        shell: pwsh
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://pljxviezoilirlsoavto.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_J9zEygp-UY48F0QYIM0gKg_BFg3KlTD' }}
+          PWA_PRODUCTION_URL: ${{ secrets.PWA_PRODUCTION_URL || 'https://cozdemir.github.io/family-to-study' }}
+        run: |
+          $pyCode = @"
+          import re, os
+          p = 'windows-agent/config.py'
+          with open(p, 'r', encoding='utf-8') as f:
+              c = f.read()
+          url = os.environ.get('NEXT_PUBLIC_SUPABASE_URL') or 'https://pljxviezoilirlsoavto.supabase.co'
+          key = os.environ.get('NEXT_PUBLIC_SUPABASE_ANON_KEY') or 'sb_publishable_J9zEygp-UY48F0QYIM0gKg_BFg3KlTD'
+          pwa = os.environ.get('PWA_PRODUCTION_URL') or 'https://cozdemir.github.io/family-to-study'
+          c = re.sub(r'supabase_url:\s*str\s*=\s*os\.getenv\([^\)]*\)', f'supabase_url: str = os.getenv(\"NEXT_PUBLIC_SUPABASE_URL\", \"{url}\")', c)
+          c = re.sub(r'supabase_anon_key:\s*str\s*=\s*os\.getenv\([^\)]*\)', f'supabase_anon_key: str = os.getenv(\"NEXT_PUBLIC_SUPABASE_ANON_KEY\", \"{key}\")', c)
+          c = re.sub(r'pwa_url:\s*str\s*=\s*os\.getenv\([^\)]*\)', f'pwa_url: str = os.getenv(\"FAMILY_PWA_URL\", \"{pwa}\")', c)
+          with open(p, 'w', encoding='utf-8') as f:
+              f.write(c)
+          print('Production config successfully embedded in windows-agent/config.py')
+          "@
+          python -c $pyCode
+
+      - name: Build Main Agent (FamilyOS_Agent.exe)
+        run: |
+          pyinstaller --noconsole --onefile --clean --name "FamilyOS_Agent" --collect-all PyQt6 --collect-all pycaw windows-agent/main.py
+
+      - name: Build Watchdog Guard (FamilyOS_Guard.exe)
+        run: |
+          pyinstaller --noconsole --onefile --clean --name "FamilyOS_Guard" windows-agent/watchdog_guard.py
+
+      - name: Generate Kurulum_Baslat.bat
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          chcp 65001 >nul
+          :: Yönetici yetkisi kontrolü ve istemi
+          net session >nul 2>&1
+          if %errorLevel% neq 0 (
+              echo [FamilyOS] Yönetici yetkileri alınıyor...
+              powershell -Command "Start-Process '%~f0' -Verb RunAs"
+              exit /b
+          )
+
+          set "INSTALL_DIR=%~dp0"
+          set "AGENT_EXE=%INSTALL_DIR%FamilyOS_Agent.exe"
+
+          echo =================================================================
+          echo   FAMILY-TO-STUDY ENDPOINT AGENT KURULUM VE BAŞLATMA
+          echo =================================================================
+          echo.
+          echo Kurulum Dizini: %INSTALL_DIR%
+          echo Ajan Programı : %AGENT_EXE%
+          echo.
+
+          if not exist "%AGENT_EXE%" (
+              echo [HATA] FamilyOS_Agent.exe bulunamadı!
+              pause
+              exit /b 1
+          )
+
+          :: 1. Task Scheduler'a (Görev Zamanlayıcı) en yüksek yetkiyle (HIGHEST) başlangıç görevi ekle
+          schtasks /create /tn "FamilyOS_Endpoint_Agent" /tr "\"%AGENT_EXE%\"" /sc ONLOGON /rl HIGHEST /f >nul 2>&1
+          if %errorLevel% equ 0 (
+              echo [OK] Windows Görev Zamanlayıcı başlangıç kaydı başarıyla oluşturuldu.
+          ) else (
+              echo [UYARI] Görev Zamanlayıcı kaydı oluşturulamadı, Registry deneniyor...
+              reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "FamilyToStudyEndpointAgent" /t REG_SZ /d "\"%AGENT_EXE%\"" /f >nul 2>&1
+          )
+
+          :: 2. Ajanı hemen arka planda başlat
+          echo [BILGI] FamilyOS Ajanı başlatılıyor...
+          start "" "%AGENT_EXE%"
+
+          echo.
+          echo =================================================================
+          echo   KURULUM BAŞARIYLA TAMAMLANDI!
+          echo   Ajan arka planda ve her bilgisayar açılışında otomatik çalışacaktır.
+          echo =================================================================
+          timeout /t 5 >nul
+          exit /b 0
+          "@
+          [System.IO.File]::WriteAllText("dist\Kurulum_Baslat.bat", $batContent, [System.Text.Encoding]::UTF8)
+
+      - name: Package Release Zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\FamilyOS_Agent.exe, dist\FamilyOS_Guard.exe, dist\Kurulum_Baslat.bat -DestinationPath dist\FamilyOS_Windows_Package.zip -Force
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: FamilyOS_Windows_Package
+          path: |
+            dist/FamilyOS_Windows_Package.zip
+            dist/FamilyOS_Agent.exe
+            dist/FamilyOS_Guard.exe
+            dist/Kurulum_Baslat.bat
+          retention-days: 30
+
+      - name: Publish Release Assets (On Tag or Manual Release)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/FamilyOS_Windows_Package.zip
+            dist/FamilyOS_Agent.exe
+            dist/FamilyOS_Guard.exe
+            dist/Kurulum_Baslat.bat
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
