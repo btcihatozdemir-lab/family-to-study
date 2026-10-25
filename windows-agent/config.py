@@ -22,6 +22,24 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Optional
 
+def _load_env_file(path: Path) -> None:
+    """Hafif dahili .env okuyucu (python-dotenv bulunamadığında devreye girer)."""
+    if not path.is_file():
+        return
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip("'\"")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+    except Exception:
+        pass
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -30,12 +48,16 @@ except Exception:
 
 BASE_DIR = Path(__file__).resolve().parent
 
-# .env dosyasını agent dizininden de yükle (varsa)
+# .env dosyasını hem kök dizinden hem de agent dizininden yükle
 try:
     if "load_dotenv" in locals():
         load_dotenv(BASE_DIR / ".env")
+        load_dotenv(BASE_DIR.parent / ".env")
 except Exception:
     pass
+
+_load_env_file(BASE_DIR / ".env")
+_load_env_file(BASE_DIR.parent / ".env")
 
 # GitHub Actions derleme anında oluşturulabilen build_secrets.py modülü (gitignored)
 try:
