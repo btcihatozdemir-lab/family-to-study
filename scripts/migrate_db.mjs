@@ -4,7 +4,10 @@ import pg from 'pg';
 const { Client } = pg;
 
 const PROJECT_REF = 'pljxviezoilirlsoavto';
-const DB_PASS = process.env.SUPABASE_DB_PASSWORD || 'WLVqQHsto5QdmM2x';
+const DB_PASS = process.env.SUPABASE_DB_PASSWORD;
+if (!DB_PASS) {
+  console.warn('⚠️ SUPABASE_DB_PASSWORD ortam değişkeni ayarlanmadı. Migration için gereklidir.');
+}
 const POOLER_HOST = 'aws-0-ap-northeast-2.pooler.supabase.com';
 
 const schemaSql = fs.readFileSync('./supabase/schema.sql', 'utf8');

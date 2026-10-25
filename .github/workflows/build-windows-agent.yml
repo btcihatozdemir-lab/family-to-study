@@ -35,29 +35,22 @@ jobs:
           pip install -r windows-agent/requirements.txt
           pip install pyinstaller
 
-      - name: Configure Production Credentials in config.py
+      - name: Configure Production Credentials (build_secrets.py)
         shell: pwsh
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://pljxviezoilirlsoavto.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_J9zEygp-UY48F0QYIM0gKg_BFg3KlTD' }}
           PWA_PRODUCTION_URL: ${{ secrets.PWA_PRODUCTION_URL || 'https://cozdemir.github.io/family-to-study' }}
         run: |
-          $pyCode = @"
-          import re, os
-          p = 'windows-agent/config.py'
-          with open(p, 'r', encoding='utf-8') as f:
-              c = f.read()
-          url = os.environ.get('NEXT_PUBLIC_SUPABASE_URL') or 'https://pljxviezoilirlsoavto.supabase.co'
-          key = os.environ.get('NEXT_PUBLIC_SUPABASE_ANON_KEY') or 'sb_publishable_J9zEygp-UY48F0QYIM0gKg_BFg3KlTD'
-          pwa = os.environ.get('PWA_PRODUCTION_URL') or 'https://cozdemir.github.io/family-to-study'
-          c = re.sub(r'supabase_url:\s*str\s*=\s*os\.getenv\([^\)]*\)', f'supabase_url: str = os.getenv(\"NEXT_PUBLIC_SUPABASE_URL\", \"{url}\")', c)
-          c = re.sub(r'supabase_anon_key:\s*str\s*=\s*os\.getenv\([^\)]*\)', f'supabase_anon_key: str = os.getenv(\"NEXT_PUBLIC_SUPABASE_ANON_KEY\", \"{key}\")', c)
-          c = re.sub(r'pwa_url:\s*str\s*=\s*os\.getenv\([^\)]*\)', f'pwa_url: str = os.getenv(\"FAMILY_PWA_URL\", \"{pwa}\")', c)
-          with open(p, 'w', encoding='utf-8') as f:
-              f.write(c)
-          print('Production config successfully embedded in windows-agent/config.py')
-          "@
-          python -c $pyCode
+          $url = $env:NEXT_PUBLIC_SUPABASE_URL
+          $key = $env:NEXT_PUBLIC_SUPABASE_ANON_KEY
+          $pwa = $env:PWA_PRODUCTION_URL
+          @"
+          BUILD_SUPABASE_URL = '$url'
+          BUILD_SUPABASE_ANON_KEY = '$key'
+          BUILD_PWA_URL = '$pwa'
+          "@ | Out-File -FilePath windows-agent/build_secrets.py -Encoding utf8
+          Write-Host "Generated windows-agent/build_secrets.py successfully."
 
       - name: Build Main Agent (FamilyOS_Agent.exe)
         run: |

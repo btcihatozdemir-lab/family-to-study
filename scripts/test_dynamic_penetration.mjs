@@ -18,7 +18,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pljxviezoilirlsoavto.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || 'sb_secret_C9nDCCofpDqlVy98N1m4bQ_i69iXgyU';
+const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_J9zEygp-UY48F0QYIM0gKg_BFg3KlTD';
 
 class MockWebSocket {
   constructor() {}

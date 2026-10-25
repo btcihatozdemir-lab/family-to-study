@@ -22,7 +22,29 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Optional
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
 BASE_DIR = Path(__file__).resolve().parent
+
+# .env dosyasını agent dizininden de yükle (varsa)
+try:
+    if "load_dotenv" in locals():
+        load_dotenv(BASE_DIR / ".env")
+except Exception:
+    pass
+
+# GitHub Actions derleme anında oluşturulabilen build_secrets.py modülü (gitignored)
+try:
+    from build_secrets import BUILD_SUPABASE_URL, BUILD_SUPABASE_ANON_KEY, BUILD_PWA_URL
+except ImportError:
+    BUILD_SUPABASE_URL = ""
+    BUILD_SUPABASE_ANON_KEY = ""
+    BUILD_PWA_URL = ""
+
 CONFIG_FILE_PATH = BASE_DIR / "agent_config.json"
 LOCAL_CACHE_FILE_PATH = BASE_DIR / "local_cache.json"
 LOCK_FILE_PATH = BASE_DIR / "updating.lock"
@@ -38,22 +60,25 @@ DEFAULT_OFFLINE_PIN_HASH = hashlib.sha256(b"145300").hexdigest()
 
 @dataclass
 class AgentConfig:
-    # Supabase Merkezi Veritabanı Bilgileri
-    supabase_url: str = os.getenv(
-        "NEXT_PUBLIC_SUPABASE_URL",
-        "https://pljxviezoilirlsoavto.supabase.co",
+    # Supabase Merkezi Veritabanı Bilgileri (Yalnızca Public Anon Key kullanılır)
+    supabase_url: str = (
+        os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+        or BUILD_SUPABASE_URL
+        or "https://pljxviezoilirlsoavto.supabase.co"
     )
-    supabase_anon_key: str = os.getenv(
-        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-        "sb_publishable_J9zEygp-UY48F0QYIM0gKg_BFg3KlTD",
-    )
-    supabase_secret_key: str = os.getenv(
-        "SUPABASE_SECRET_KEY",
-        "sb_secret_C9nDCCofpDqlVy98N1m4bQ_i69iXgyU",
+    supabase_anon_key: str = (
+        os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+        or BUILD_SUPABASE_ANON_KEY
+        or "sb_publishable_J9zEygp-UY48F0QYIM0gKg_BFg3KlTD"
     )
 
     # Gömülü QWebEngineView içinde gösterilecek PWA Adresi
-    pwa_url: str = os.getenv("FAMILY_PWA_URL", "http://localhost:3000")
+    pwa_url: str = (
+        os.getenv("PWA_PRODUCTION_URL")
+        or os.getenv("FAMILY_PWA_URL")
+        or BUILD_PWA_URL
+        or "http://localhost:3000"
+    )
 
     # Çoklu Aile (Multi-Tenant) ve Öğrenci/Cihaz Kimlikleri
     family_id: str = os.getenv("FAMILY_ID", "fam-ozdemir")

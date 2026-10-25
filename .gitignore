@@ -47,7 +47,11 @@ wheels/
 .installed.cfg
 *.egg
 
-# Windows Agent Local Data & Locks
+# Windows Agent Local Data, Configurations & Secrets
+build_secrets.py
+windows-agent/build_secrets.py
+agent_config.json
+windows-agent/agent_config.json
 windows-agent/local_cache.json
 local_cache.json
 windows-agent/updating.lock
