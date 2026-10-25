@@ -35,22 +35,12 @@ jobs:
           pip install -r windows-agent/requirements.txt
           pip install pyinstaller
 
-      - name: Configure Production Credentials (build_secrets.py)
-        shell: pwsh
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://pljxviezoilirlsoavto.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_J9zEygp-UY48F0QYIM0gKg_BFg3KlTD' }}
-          PWA_PRODUCTION_URL: ${{ secrets.PWA_PRODUCTION_URL || 'https://cozdemir.github.io/family-to-study' }}
+      - name: Inject Secrets for Build Only
         run: |
-          $url = $env:NEXT_PUBLIC_SUPABASE_URL
-          $key = $env:NEXT_PUBLIC_SUPABASE_ANON_KEY
-          $pwa = $env:PWA_PRODUCTION_URL
-          @"
-          BUILD_SUPABASE_URL = '$url'
-          BUILD_SUPABASE_ANON_KEY = '$key'
-          BUILD_PWA_URL = '$pwa'
-          "@ | Out-File -FilePath windows-agent/build_secrets.py -Encoding utf8
-          Write-Host "Generated windows-agent/build_secrets.py successfully."
+          echo 'BUILD_SUPABASE_URL = "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}"' > windows-agent/build_secrets.py
+          echo 'BUILD_SUPABASE_ANON_KEY = "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"' >> windows-agent/build_secrets.py
+          echo 'BUILD_PWA_URL = "${{ secrets.PWA_PRODUCTION_URL }}"' >> windows-agent/build_secrets.py
+        shell: bash
 
       - name: Build Main Agent (FamilyOS_Agent.exe)
         run: |
