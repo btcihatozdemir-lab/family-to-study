@@ -9,7 +9,7 @@ cd /d "%~dp0"
 pip install -r requirements.txt
 
 echo FamilyToStudyAgent.exe derleniyor...
-pyinstaller --noconfirm --onefile --windowed --name "FamilyToStudyAgent" main.py
+pyinstaller --noconfirm --onefile --windowed --icon "assets\kids.ico" --add-data "assets;assets" --name "FamilyToStudyAgent" main.py
 
 echo.
 echo ✅ Derleme tamamlandı! "dist\FamilyToStudyAgent.exe" dosyasını kullanabilirsiniz.

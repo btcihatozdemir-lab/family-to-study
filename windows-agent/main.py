@@ -117,6 +117,7 @@ def run_pyqt_endpoint_worker() -> int:
     )
 
     from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtGui import QIcon
     from agent_ui import StudentEndpointWindow
 
     def global_exception_handler(exc_type, exc_value, exc_tb):
@@ -127,6 +128,13 @@ def run_pyqt_endpoint_worker() -> int:
 
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
+
+    # Windows Ajanı Görev Çubuğu ve Pencere İkonunu Bağla
+    icon_candidate = BASE_DIR / "assets" / "kids.ico"
+    if not icon_candidate.exists():
+        icon_candidate = BASE_DIR / "assets" / "kids-logo.png"
+    if icon_candidate.exists():
+        app.setWindowIcon(QIcon(str(icon_candidate)))
 
     window = StudentEndpointWindow()
     window.show()

@@ -44,11 +44,11 @@ jobs:
 
       - name: Build Main Agent (FamilyOS_Agent.exe)
         run: |
-          pyinstaller --noconsole --onefile --clean --name "FamilyOS_Agent" --collect-all PyQt6 --collect-all pycaw windows-agent/main.py
+          pyinstaller --noconsole --onefile --clean --name "FamilyOS_Agent" --icon "windows-agent/assets/kids.ico" --add-data "windows-agent/assets;assets" --collect-all PyQt6 --collect-all pycaw windows-agent/main.py
 
       - name: Build Watchdog Guard (FamilyOS_Guard.exe)
         run: |
-          pyinstaller --noconsole --onefile --clean --name "FamilyOS_Guard" windows-agent/watchdog_guard.py
+          pyinstaller --noconsole --onefile --clean --name "FamilyOS_Guard" --icon "windows-agent/assets/kids.ico" windows-agent/watchdog_guard.py
 
       - name: Generate Kurulum_Baslat.bat
         shell: pwsh

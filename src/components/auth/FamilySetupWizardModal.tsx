@@ -124,8 +124,15 @@ export const FamilySetupWizardModal: React.FC<FamilySetupWizardModalProps> = ({
       >
         {/* Wizard Header */}
         <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg">
-            🏰
+          <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-950 border border-indigo-400/40 flex items-center justify-center p-1 shadow-lg shrink-0">
+            <img
+              src="family-logo.png"
+              alt="Family Logo"
+              className="w-full h-full object-contain rounded-xl"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = 'icon-192.png';
+              }}
+            />
           </div>
           <div>
             <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 uppercase tracking-wider">

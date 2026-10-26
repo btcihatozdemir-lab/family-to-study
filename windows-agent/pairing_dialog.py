@@ -16,7 +16,7 @@ from typing import Optional
 
 try:
     from PyQt6.QtCore import Qt
-    from PyQt6.QtGui import QGuiApplication, QFont
+    from PyQt6.QtGui import QGuiApplication, QFont, QIcon, QPixmap
     from PyQt6.QtWidgets import (
         QDialog,
         QWidget,
@@ -34,7 +34,16 @@ except ImportError:
         def exec(self): return 1
         def accept(self): pass
         def reject(self): pass
+        def setWindowTitle(self, *args): pass
+        def setFixedSize(self, *args): pass
+        def setStyleSheet(self, *args): pass
+        def setWindowIcon(self, *args): pass
     class QWidget: pass  # type: ignore
+    class QIcon:  # type: ignore
+        def __init__(self, *args, **kwargs): pass
+    class QPixmap:  # type: ignore
+        def __init__(self, *args, **kwargs): pass
+        def scaled(self, *args, **kwargs): return self
 
 from config import (
     BASE_DIR,
@@ -54,6 +63,14 @@ class DevicePairingDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("FamilyOS • Bilgisayar Eşleştirme (Faz 6)")
         self.setFixedSize(480, 310)
+        icon_cand = BASE_DIR / "assets" / "kids.ico"
+        if not icon_cand.exists():
+            icon_cand = BASE_DIR / "assets" / "kids-logo.png"
+        if icon_cand.exists():
+            try:
+                self.setWindowIcon(QIcon(str(icon_cand)))
+            except Exception:
+                pass
         self._setup_style()
         self._build_ui()
 
@@ -109,8 +126,26 @@ class DevicePairingDialog(QDialog):
 
         # Başlık ve İkon
         header_layout = QHBoxLayout()
-        icon_lbl = QLabel("🖥️")
-        icon_lbl.setStyleSheet("font-size: 26px; border: none;")
+        pix_path = BASE_DIR / "assets" / "kids-logo.png"
+        icon_lbl = None
+        if pix_path.exists():
+            try:
+                pix = QPixmap(str(pix_path)).scaled(
+                    36,
+                    36,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                icon_lbl = QLabel()
+                icon_lbl.setPixmap(pix)
+                icon_lbl.setStyleSheet("border: none; background: transparent;")
+            except Exception:
+                icon_lbl = None
+
+        if icon_lbl is None:
+            icon_lbl = QLabel("🖥️")
+            icon_lbl.setStyleSheet("font-size: 26px; border: none;")
+
         header_layout.addWidget(icon_lbl)
 
         title_box = QVBoxLayout()

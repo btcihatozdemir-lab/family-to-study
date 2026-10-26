@@ -127,8 +127,15 @@ export const TopFamilyBar: React.FC = () => {
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           {/* Brand, Active Family Badge & Realtime Engine Status */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center font-black text-lg shadow-lg">
-              ⭐
+            <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-900 border border-slate-700/60 shadow-lg flex items-center justify-center shrink-0">
+              <img
+                src={activeUser.role === 'student' ? 'kids-logo.png' : 'family-logo.png'}
+                alt="FamilyOS Logo"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = 'icon-192.png';
+                }}
+              />
             </div>
             <div>
               <div className="font-black text-sm sm:text-base tracking-tight flex flex-wrap items-center gap-2">

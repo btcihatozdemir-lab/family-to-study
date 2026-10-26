@@ -40,7 +40,7 @@ from PyQt6.QtCore import (
     QObject,
     QPoint,
 )
-from PyQt6.QtGui import QGuiApplication, QCloseEvent, QKeyEvent
+from PyQt6.QtGui import QGuiApplication, QCloseEvent, QKeyEvent, QIcon, QPixmap
 from PyQt6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -565,6 +565,11 @@ class StudentEndpointWindow(QMainWindow):
 
         # Pencere ve Arayüz Kurulumu
         self._setup_window_flags()
+        icon_cand = BASE_DIR / "assets" / "kids.ico"
+        if not icon_cand.exists():
+            icon_cand = BASE_DIR / "assets" / "kids-logo.png"
+        if icon_cand.exists():
+            self.setWindowIcon(QIcon(str(icon_cand)))
         self._build_ui()
         self._transition_to_widget_mode(expanded=False)
 

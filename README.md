@@ -1,5 +1,14 @@
 # 🦁 FamilyToStudy - Aile İçi Oyunlaştırma, Görev ve Odaklanma Ekosistemi
 
+<p align="center">
+  <img src="assets/general.jpeg" alt="FamilyToStudy Ekosistemi" width="100%" style="border-radius: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+</p>
+
+<p align="center">
+  <img src="public/family-logo.png" alt="Family Logo" width="110" style="margin-right: 20px;" />
+  <img src="public/kids-logo.png" alt="Kids Logo" width="110" />
+</p>
+
 FamilyToStudy; çocukların günlük rutinlerini, ödevlerini ve sorumluluklarını eğlenceli hale getiren, ödül/puan ekonomisi barındıran, çoklu cihaz (PC, Tablet, Telefon) senkronizasyonlu, ebeveyn kontrollü ve gerçek zamanlı (Realtime WebSockets) çalışan bir **PWA (Progressive Web App)** ve **Windows Masaüstü Ajanı** sistemidir.
 
 ---

@@ -261,8 +261,15 @@ export const AuthAndLoginScreen: React.FC<AuthAndLoginScreenProps> = ({
       >
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center text-3xl shadow-xl shadow-indigo-500/20">
-            🚀
+          <div className="w-20 h-20 mx-auto rounded-3xl overflow-hidden bg-slate-950 border-2 border-indigo-500/40 shadow-2xl flex items-center justify-center p-1.5 shadow-indigo-500/20">
+            <img
+              src="family-logo.png"
+              alt="FamilyToStudy Logo"
+              className="w-full h-full object-contain rounded-2xl"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = 'icon-192.png';
+              }}
+            />
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[11px] font-black uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
@@ -274,6 +281,26 @@ export const AuthAndLoginScreen: React.FC<AuthAndLoginScreenProps> = ({
           <p className="text-xs text-slate-400 max-w-xs mx-auto">
             Aile odaklı çalışma, görev yönetimi ve ders asistanı platformuna hoş geldiniz.
           </p>
+        </div>
+
+        {/* Tanıtım / Karşılama Görseli (Hero Banner) */}
+        <div className="relative rounded-2xl overflow-hidden border border-indigo-500/30 shadow-xl group">
+          <img
+            src="general-banner.jpg"
+            alt="FamilyToStudy Aile Ekosistemi"
+            className="w-full h-36 object-cover object-center group-hover:scale-105 transition-transform duration-500"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = 'general.jpeg';
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent flex flex-col justify-end p-3">
+            <span className="text-[11px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1">
+              ⭐ Birlikte Başarı, Güvenli Teknoloji
+            </span>
+            <span className="text-xs text-slate-200 font-bold">
+              Çocuklar ve Ebeveynler İçin Akıllı Çalışma & Odaklanma Portalı
+            </span>
+          </div>
         </div>
 
         {/* Feedback alerts */}

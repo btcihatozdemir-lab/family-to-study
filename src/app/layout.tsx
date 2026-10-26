@@ -7,6 +7,16 @@ export const metadata: Metadata = {
   description:
     'Çocukların günlük rutinlerini, ödevlerini ve sorumluluklarını eğlenceli hale getiren, çoklu cihaz senkronizasyonlu ve ebeveyn kontrollü PWA sistemi.',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: 'favicon.ico', sizes: '32x32' },
+      { url: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: 'icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: 'apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
