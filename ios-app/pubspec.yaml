@@ -1,0 +1,44 @@
+name: family_to_study_ios
+description: "FamilyToStudy - Aile Akademisi & Odaklanma Native iOS Uygulaması (iOS 15.8+ & Güncel iOS)"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # WebView & Native JS Bridge (iOS 15.8+ tam uyumlu)
+  flutter_inappwebview: ^6.1.5
+  
+  # 7/24 Arka Plan Realtime WebSocket Dinleyici
+  supabase_flutter: ^2.8.0
+  
+  # Kilit Ekranı ve Anlık Yerel Bildirimler
+  flutter_local_notifications: ^17.2.4
+  
+  # Sessiz Mod Delici Alarm & Arka Plan Canlı Tutucu
+  just_audio: ^0.9.40
+  audio_session: ^0.1.21
+  
+  # Ders/Odak Saatinde Ekran Kararmasını Engelleme
+  wakelock_plus: ^1.2.8
+  
+  # Kamera & Mikrofon Native İzin Yöneticisi
+  permission_handler: ^11.3.1
+  
+  # Yerel Oturum & Ayar Hafızası
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/audio/silence.wav

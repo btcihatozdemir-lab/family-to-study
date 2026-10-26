@@ -75,6 +75,21 @@ windows-agent/*.log
 .DS_Store
 Thumbs.db
 
+# Flutter & iOS Build Artifacts
+ios-app/.dart_tool/
+ios-app/.flutter-plugins
+ios-app/.flutter-plugins-dependencies
+ios-app/.packages
+ios-app/build/
+ios-app/ios/Pods/
+ios-app/ios/.symlinks/
+ios-app/ios/Flutter/Generated.xcconfig
+ios-app/ios/Flutter/flutter_export_environment.sh
+ios-app/ios/Podfile.lock
+ios-app/*.ipa
+ios-app/Payload/
+*.ipa
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts

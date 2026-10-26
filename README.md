@@ -58,6 +58,23 @@ Proje, GitHub Actions (`.github/workflows/deploy-pwa.yml`) ile `main` dalına ya
 
 ---
 
+## 🍏 Flutter Native iOS Uygulaması (iOS 15.8+ & Sideloadly)
+
+`ios-app/` dizini altında barındırılan Flutter Native uygulaması, hem eski iOS sürümleri (iPhone 6s/7/SE1 - iOS 15.8) hem de güncel iOS (iOS 16/17/18) cihazlar için optimize edilmiştir:
+
+1. **Özellikler:**
+   - **7/24 Arka Plan Canlı Tutucu:** APNs ücretli sertifikası olmadan, arka planda sıfır volümlü döngü ile soketleri açık tutar.
+   - **Sessiz Mod Delici Alarm:** `AVAudioSessionCategory.playback` ile sessiz anahtarı kapalı olsa bile sabah alarmlarını yüksek sesle çalar.
+   - **Ayrılma Sensörü (`AppLifecycle`):** Öğrenci ders saatinde uygulamayı alta attığında anında kalkan ihlali yazar ve veliye bildirim fırlatır.
+   - **Wakelock:** Odak saatlerinde ekranın kilitlenmesini önler.
+   - **Kamera & Mikrofon:** QR tarama, sesli DM ve fotoğraf kanıtı izinlerini Native yönetir.
+
+2. **GitHub Actions Otomatik `.IPA` Derleme:**
+   - `.github/workflows/build-ios-ipa.yml` iş akışı macOS üzerinde imzasız `FamilyOS_iOS_Universal.ipa` paketini otomatik derler.
+   - Paketi indirip **Sideloadly** veya **AltStore** ile ücretsiz Apple kimliğinizle iPhone/iPad'inize yükleyebilirsiniz.
+
+---
+
 ## 🔒 Güvenlik Mimarisi ve Çevre Değişkenleri
 
 1. **Sıfır-Gizli-Anahtar İlkesi (Zero Hardcoded Secrets):**
