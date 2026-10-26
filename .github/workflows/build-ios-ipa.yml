@@ -1,15 +1,13 @@
-name: Build Flutter iOS Native App (.IPA)
+name: 'Build Flutter iOS Native App (IPA)'
 
 on:
   push:
-    paths:
-      - 'ios-app/**'
-      - '.github/workflows/build-ios-ipa.yml'
     branches:
       - main
       - master
-    tags:
-      - 'v*'
+    paths:
+      - 'ios-app/**'
+      - '.github/workflows/build-ios-ipa.yml'
   workflow_dispatch:
 
 permissions:

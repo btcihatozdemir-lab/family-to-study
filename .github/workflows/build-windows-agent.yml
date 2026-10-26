@@ -1,15 +1,13 @@
-name: Build Windows Agent (.EXE)
+name: 'Build Windows Agent (EXE)'
 
 on:
   push:
-    paths:
-      - 'windows-agent/**'
-      - '.github/workflows/build-windows-agent.yml'
     branches:
       - main
       - master
-    tags:
-      - 'v*'
+    paths:
+      - 'windows-agent/**'
+      - '.github/workflows/build-windows-agent.yml'
   workflow_dispatch:
 
 permissions:
