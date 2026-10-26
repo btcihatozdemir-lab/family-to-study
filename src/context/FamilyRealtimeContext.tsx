@@ -880,7 +880,7 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
                 await sealPersistentSession({
                   userId: pUser.id,
                   familyId: myFam.id,
-                  sessionToken: sessionData.session.access_token || pUser.id,
+                  sessionToken: sessionData?.session?.access_token || pUser.id,
                   role: pUser.role,
                   name: pUser.name,
                   savedAt: Date.now(),
