@@ -30,14 +30,21 @@ jobs:
       - name: Verify Flutter Environment
         run: flutter doctor -v
 
-      - name: Install Flutter Dependencies
+      - name: Generate Xcode Project Skeleton
+        run: |
+          cd ios-app
+          mkdir -p /tmp/ios_custom_backup
+          cp -r ios/* /tmp/ios_custom_backup/ 2>/dev/null || true
+          flutter create --platforms=ios --org com.familytostudy .
+          cp -rf /tmp/ios_custom_backup/* ios/
+          # Ensure iOS 15.0 minimum deployment target across all Xcode configurations
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj 2>/dev/null || true
+
+      - name: Install Dependencies and CocoaPods
         run: |
           cd ios-app
           flutter pub get
-
-      - name: 'CocoaPods Install (Target: iOS 15.0+)'
-        run: |
-          cd ios-app/ios
+          cd ios
           pod install --repo-update
 
       - name: Build iOS Release (Unsigned for Sideloadly)
