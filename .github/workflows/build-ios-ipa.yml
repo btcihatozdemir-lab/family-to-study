@@ -34,9 +34,17 @@ jobs:
         run: |
           cd ios-app
           mkdir -p /tmp/ios_custom_backup
-          cp -r ios/* /tmp/ios_custom_backup/ 2>/dev/null || true
+          cp -f ios/Podfile /tmp/ios_custom_backup/Podfile 2>/dev/null || true
+          cp -f ios/Runner/Info.plist /tmp/ios_custom_backup/Info.plist 2>/dev/null || true
+          cp -f ios/Runner/AppDelegate.swift /tmp/ios_custom_backup/AppDelegate.swift 2>/dev/null || true
+          
           flutter create --platforms=ios --org com.familytostudy .
-          cp -rf /tmp/ios_custom_backup/* ios/
+          
+          # Restore customized configurations only (Podfile, Info.plist, AppDelegate)
+          cp -f /tmp/ios_custom_backup/Podfile ios/Podfile
+          cp -f /tmp/ios_custom_backup/Info.plist ios/Runner/Info.plist
+          cp -f /tmp/ios_custom_backup/AppDelegate.swift ios/Runner/AppDelegate.swift
+          
           # Ensure iOS 15.0 minimum deployment target across all Xcode configurations
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj 2>/dev/null || true
 
