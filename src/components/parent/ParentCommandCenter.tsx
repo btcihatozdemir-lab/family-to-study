@@ -49,6 +49,7 @@ import {
   RewardTier,
   TaskCategory,
   TaskVerificationType,
+  UserProfile,
 } from '@/types/database';
 
 const MOOD_BADGES = {
