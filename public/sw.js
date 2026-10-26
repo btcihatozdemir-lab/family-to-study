@@ -1,12 +1,22 @@
 // FamilyToStudy Service Worker (iOS 16.4+ Web Push & Multi-Device Notification Engine)
-const CACHE_NAME = 'family-to-study-v1';
+const CACHE_NAME = 'family-to-study-v2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      )
+    ).then(() => self.clients.claim())
+  );
 });
 
 // Handle Web Push Notifications (Wake-Up Alarms, Shield Violations, Flash Quests)

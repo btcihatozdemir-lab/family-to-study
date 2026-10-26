@@ -44,7 +44,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://pljxviezoilirlsoavto.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_J9zEygp-UY48F0QYIM0gKg_BFg3KlTD' }}
-          NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path || secrets.NEXT_PUBLIC_BASE_PATH || '/family-to-study' }}
+          NEXT_PUBLIC_BASE_PATH: '/family-to-study'
         run: npm run build
 
       - name: Upload Pages Artifact

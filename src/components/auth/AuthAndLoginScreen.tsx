@@ -116,10 +116,13 @@ export const AuthAndLoginScreen: React.FC<AuthAndLoginScreenProps> = ({
       if (!supabase) {
         throw new Error('Supabase istemcisi yapılandırılmamış.');
       }
-      const redirectUrl =
-        typeof window !== 'undefined'
-          ? `${window.location.origin}${window.location.pathname}`
-          : undefined;
+      let redirectUrl = 'https://btcihatozdemir-lab.github.io/family-to-study/';
+      if (typeof window !== 'undefined') {
+        const host = window.location.hostname;
+        if (!host.includes('github.io')) {
+          redirectUrl = `${window.location.origin}/`;
+        }
+      }
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
