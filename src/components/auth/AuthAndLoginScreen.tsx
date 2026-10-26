@@ -263,11 +263,11 @@ export const AuthAndLoginScreen: React.FC<AuthAndLoginScreenProps> = ({
         <div className="text-center space-y-2">
           <div className="w-20 h-20 mx-auto rounded-3xl overflow-hidden bg-slate-950 border-2 border-indigo-500/40 shadow-2xl flex items-center justify-center p-1.5 shadow-indigo-500/20">
             <img
-              src="family-logo.png"
+              src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/family-logo.png`}
               alt="FamilyToStudy Logo"
               className="w-full h-full object-contain rounded-2xl"
               onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = 'icon-192.png';
+                (e.currentTarget as HTMLImageElement).src = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/icon-192.png`;
               }}
             />
           </div>
@@ -286,11 +286,11 @@ export const AuthAndLoginScreen: React.FC<AuthAndLoginScreenProps> = ({
         {/* Tanıtım / Karşılama Görseli (Hero Banner) */}
         <div className="relative rounded-2xl overflow-hidden border border-indigo-500/30 shadow-xl group">
           <img
-            src="general-banner.jpg"
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/general-banner.jpg`}
             alt="FamilyToStudy Aile Ekosistemi"
             className="w-full h-36 object-cover object-center group-hover:scale-105 transition-transform duration-500"
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = 'general.jpeg';
+              (e.currentTarget as HTMLImageElement).src = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/general.jpeg`;
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent flex flex-col justify-end p-3">

@@ -129,11 +129,11 @@ export const TopFamilyBar: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-900 border border-slate-700/60 shadow-lg flex items-center justify-center shrink-0">
               <img
-                src={activeUser.role === 'student' ? 'kids-logo.png' : 'family-logo.png'}
+                src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/${activeUser.role === 'child' ? 'kids-logo.png' : 'family-logo.png'}`}
                 alt="FamilyOS Logo"
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = 'icon-192.png';
+                  (e.currentTarget as HTMLImageElement).src = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/icon-192.png`;
                 }}
               />
             </div>

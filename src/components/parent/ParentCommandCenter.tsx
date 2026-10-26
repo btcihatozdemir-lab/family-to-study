@@ -455,8 +455,18 @@ export const ParentCommandCenter: React.FC = () => {
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-500 to-indigo-600 flex items-center justify-center text-3xl shadow-lg">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-500 to-indigo-600 flex items-center justify-center text-3xl shadow-lg relative shrink-0">
               {activeUser.avatar_config.emoji}
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-slate-900 border-2 border-indigo-400 overflow-hidden shadow-lg flex items-center justify-center">
+                <img
+                  src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/family-logo.png`}
+                  alt="Family Logo"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                  }}
+                />
+              </div>
             </div>
             <div>
               <div className="inline-flex flex-wrap items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-extrabold mb-1">

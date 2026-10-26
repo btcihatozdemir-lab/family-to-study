@@ -551,9 +551,19 @@ export const StudentDashboard: React.FC = () => {
             <div
               className={`${
                 isJunior ? 'w-20 h-20 sm:w-24 sm:h-24 text-5xl rounded-3xl' : 'w-16 h-16 sm:w-20 sm:h-20 text-4xl rounded-2xl'
-              } bg-gradient-to-br ${activeUser.avatar_config.bg} flex items-center justify-center shadow-xl border-2 border-white/40 shrink-0`}
+              } bg-gradient-to-br ${activeUser.avatar_config.bg} flex items-center justify-center shadow-xl border-2 border-white/40 shrink-0 relative`}
             >
               {activeUser.avatar_config.emoji}
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-900 border-2 border-amber-400 overflow-hidden shadow-lg flex items-center justify-center">
+                <img
+                  src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/kids-logo.png`}
+                  alt="Kids Logo"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                  }}
+                />
+              </div>
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-1">

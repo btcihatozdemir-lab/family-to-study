@@ -126,11 +126,11 @@ export const FamilySetupWizardModal: React.FC<FamilySetupWizardModalProps> = ({
         <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
           <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-950 border border-indigo-400/40 flex items-center justify-center p-1 shadow-lg shrink-0">
             <img
-              src="family-logo.png"
+              src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/family-logo.png`}
               alt="Family Logo"
               className="w-full h-full object-contain rounded-xl"
               onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = 'icon-192.png';
+                (e.currentTarget as HTMLImageElement).src = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/icon-192.png`;
               }}
             />
           </div>
