@@ -35,7 +35,7 @@ jobs:
           cd ios-app
           flutter pub get
 
-      - name: CocoaPods Install (Target: iOS 15.0+)
+      - name: 'CocoaPods Install (Target: iOS 15.0+)'
         run: |
           cd ios-app/ios
           pod install --repo-update
