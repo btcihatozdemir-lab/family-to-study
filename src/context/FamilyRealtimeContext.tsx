@@ -914,8 +914,17 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
 
     initAuth();
 
+    const { data: authSub } = supabase
+      ? supabase.auth.onAuthStateChange((event, session) => {
+          if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+            initAuth();
+          }
+        })
+      : { data: null };
+
     return () => {
       isCancelled = true;
+      authSub?.subscription?.unsubscribe();
     };
   }, [loadFamilyData]);
 

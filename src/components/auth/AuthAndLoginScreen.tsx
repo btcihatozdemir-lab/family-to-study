@@ -116,10 +116,15 @@ export const AuthAndLoginScreen: React.FC<AuthAndLoginScreenProps> = ({
       if (!supabase) {
         throw new Error('Supabase istemcisi yapılandırılmamış.');
       }
+      const redirectUrl =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}${window.location.pathname}`
+          : undefined;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+          redirectTo: redirectUrl,
         },
       });
       if (error) throw error;
