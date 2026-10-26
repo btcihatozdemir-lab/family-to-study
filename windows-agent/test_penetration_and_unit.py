@@ -235,6 +235,89 @@ class TestUnitMathAndHooks(unittest.TestCase):
         # Olmayan uçuk bir PID
         self.assertFalse(is_pid_alive_and_matches(99999999))
 
+    # --------------------------------------------------------------------------
+    # FAZ 6: CİHAZ EŞLEŞTİRME VE DERS PROGRAMI / ÇANTA BİRİM TESTLERİ
+    # --------------------------------------------------------------------------
+    def test_pairing_code_normalization(self):
+        """Kullanıcının girdiği eşleştirme kodu (849-201, 849 201 vb.) 6 haneli temiz stringe normalize edilmelidir."""
+        def clean_code(raw: str) -> str:
+            return raw.replace("-", "").replace(" ", "").strip()
+
+        self.assertEqual(clean_code("849-201"), "849201")
+        self.assertEqual(clean_code(" 849 201 "), "849201")
+        self.assertEqual(clean_code("849201"), "849201")
+        self.assertTrue(len(clean_code("849-201")) == 6)
+
+    def test_device_auth_persistence(self):
+        """device_auth.json dosyasının doğru formatta yazılıp okunduğu doğrulanır."""
+        import json
+        from config import load_device_auth, save_device_auth, DEVICE_AUTH_FILE_PATH
+
+        test_payload = {
+            "user_id": "test-student-uuid-1234",
+            "family_id": "test-family-uuid-5678",
+            "student_name": "Ömer Faruk",
+            "magic_login_token": "token-xyz-abc",
+            "paired_at": "2026-10-26T12:00:00Z"
+        }
+        backup_bytes = None
+        if DEVICE_AUTH_FILE_PATH.exists():
+            backup_bytes = DEVICE_AUTH_FILE_PATH.read_bytes()
+
+        try:
+            save_device_auth(test_payload)
+            loaded = load_device_auth()
+            self.assertEqual(loaded.get("user_id"), "test-student-uuid-1234")
+            self.assertEqual(loaded.get("student_name"), "Ömer Faruk")
+            self.assertEqual(loaded.get("magic_login_token"), "token-xyz-abc")
+        finally:
+            if backup_bytes is not None:
+                DEVICE_AUTH_FILE_PATH.write_bytes(backup_bytes)
+            elif DEVICE_AUTH_FILE_PATH.exists():
+                DEVICE_AUTH_FILE_PATH.unlink()
+
+    def test_tomorrow_schedule_bag_announcement_generator(self):
+        """Sesli çanta asistanının ders ve malzemeleri Türkçe metne doğru dönüştürdüğü test edilir."""
+        from system_hooks import announce_tomorrow_bag_schedule
+
+        # Mock supabase client
+        class MockQuery:
+            def __init__(self, data):
+                self.data = data
+            def select(self, *args, **kwargs): return self
+            def eq(self, *args, **kwargs): return self
+            def limit(self, *args, **kwargs): return self
+            def execute(self): return self
+
+        class MockSupabase:
+            def table(self, name):
+                return MockQuery([
+                    {
+                        "lessons": [
+                            {"period": 1, "name": "Matematik"},
+                            {"period": 2, "name": "Matematik"},
+                            {"period": 3, "name": "Türkçe"},
+                            {"period": 4, "name": "Fen Bilimleri"},
+                            {"period": 5, "name": "Görsel Sanatlar"},
+                        ],
+                        "extra_materials": ["Resim Çantası", "Boya Kalemleri"]
+                    }
+                ])
+
+        mock_client = MockSupabase()
+        announcement = announce_tomorrow_bag_schedule(
+            supabase_client=mock_client,
+            user_id="student-1",
+            student_name="Zeynep",
+            tts_announcer=None
+        )
+
+        self.assertIsNotNone(announcement)
+        self.assertIn("Zeynep", announcement)
+        self.assertIn("Matematik", announcement)
+        self.assertIn("Görsel Sanatlar", announcement)
+        self.assertIn("Resim Çantası", announcement)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

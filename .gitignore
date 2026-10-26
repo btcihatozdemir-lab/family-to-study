@@ -56,6 +56,10 @@ agent_config.json
 windows-agent/agent_config.json
 windows-agent/local_cache.json
 local_cache.json
+windows-agent/device_auth.json
+device_auth.json
+windows-agent/web_storage/
+web_storage/
 windows-agent/updating.lock
 updating.lock
 windows-agent/temp_screenshots/

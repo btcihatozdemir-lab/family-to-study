@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
+from datetime import datetime
 import io
 import os
 import queue
@@ -1206,4 +1207,82 @@ class TTSAnnouncer(threading.Thread):
                 comtypes.CoUninitialize()
             except Exception:
                 pass
+
+
+# ==============================================================================
+# 12. FAZ 6: YARININ DERS PROGRAMI VE SESLİ ÇANTA HAZIRLAMA ANONSU
+# ==============================================================================
+def announce_tomorrow_bag_schedule(
+    supabase_client: Optional[object],
+    user_id: str,
+    student_name: str,
+    tts_announcer: Optional[TTSAnnouncer],
+) -> Optional[str]:
+    """
+    Akşam çanta hazırlama rutini veya ebeveyn hatırlatması tetiklendiğinde:
+    Öğrencinin `school_schedules` tablosundaki yarınki derslerini (`lessons`) ve
+    ekstra malzemelerini (`extra_materials`) Supabase üzerinden çeker.
+    Audio Ducking ile diğer tüm oyun/video seslerini kısarak Türkçe sesli anons yapar:
+    'Dikkat [Öğrenci Adı]! Çanta hazırlama vakti. Yarınki derslerin: [Dersler]. Lütfen kitaplarını, defterlerini ve [Malzemeler] eşyalarını çantana yerleştir.'
+    """
+    now = datetime.now()
+    # ISO weekday: 1 = Pazartesi ... 7 = Pazar
+    today_iso = now.isoweekday()
+    tomorrow_iso = (today_iso % 7) + 1
+
+    lessons_list: list[str] = []
+    materials_list: list[str] = []
+
+    if supabase_client:
+        try:
+            res = (
+                supabase_client.table("school_schedules")
+                .select("*")
+                .eq("user_id", user_id)
+                .eq("day_of_week", tomorrow_iso)
+                .limit(1)
+                .execute()
+            )
+            if res.data and len(res.data) > 0:
+                row = res.data[0]
+                raw_lessons = row.get("lessons") or []
+                if isinstance(raw_lessons, list):
+                    sorted_lessons = sorted(
+                        raw_lessons,
+                        key=lambda x: x.get("period", 0) if isinstance(x, dict) else 0,
+                    )
+                    for item in sorted_lessons:
+                        if isinstance(item, dict) and item.get("name"):
+                            l_name = str(item["name"]).strip()
+                            if l_name and l_name not in lessons_list:
+                                lessons_list.append(l_name)
+
+                raw_mats = row.get("extra_materials") or row.get("custom_items_to_pack") or []
+                if isinstance(raw_mats, list):
+                    for m in raw_mats:
+                        m_str = str(m).strip()
+                        if m_str and m_str not in materials_list:
+                            materials_list.append(m_str)
+
+                if row.get("has_pe_class") and "Eşofman Takımı" not in materials_list:
+                    materials_list.insert(0, "Eşofman Takımı")
+                if row.get("has_art_class") and "Resim Çantası" not in materials_list:
+                    materials_list.append("Resim Çantası")
+        except Exception as err:
+            print(f"[BagSchedule] Supabase sorgu hatası: {err}")
+
+    # Eğer veritabanında henüz girilmemişse zengin varsayılan dersler
+    lessons_text = ", ".join(lessons_list) if lessons_list else "Matematik, Türkçe ve Fen Bilimleri"
+    materials_text = ", ".join(materials_list) if materials_list else "Suluğunu ve Resim Çantanı"
+
+    speech_text = (
+        f"Dikkat {student_name}! Çanta hazırlama vakti. "
+        f"Yarınki derslerin: {lessons_text}. "
+        f"Lütfen kitaplarını, defterlerini ve {materials_text} eşyalarını çantana yerleştir."
+    )
+
+    if tts_announcer:
+        tts_announcer.announce(speech_text, dedupe_window_sec=10.0)
+
+    return speech_text
 

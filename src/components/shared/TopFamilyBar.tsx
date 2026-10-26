@@ -15,6 +15,7 @@ import {
   Users,
   Plus,
   KeyRound,
+  LogOut,
 } from 'lucide-react';
 import { useFamilyRealtime } from '@/context/FamilyRealtimeContext';
 import { DevicePlatform, UserProfile } from '@/types/database';
@@ -34,6 +35,7 @@ export const TopFamilyBar: React.FC = () => {
     liveAlerts,
     dismissAlert,
     isLiveSupabase,
+    logout,
   } = useFamilyRealtime();
 
   const [pendingParentTarget, setPendingParentTarget] =
@@ -222,6 +224,17 @@ export const TopFamilyBar: React.FC = () => {
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">2. Cihaz Sekmesi Aç</span>
+            </button>
+
+            {/* Logout Button */}
+            <button
+              type="button"
+              onClick={logout}
+              title="Oturumu Kapat (Cihaz Mührünü Kaldır)"
+              className="px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-1.5 transition"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Çıkış</span>
             </button>
           </div>
         </div>

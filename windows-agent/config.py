@@ -69,15 +69,49 @@ except ImportError:
 
 CONFIG_FILE_PATH = BASE_DIR / "agent_config.json"
 LOCAL_CACHE_FILE_PATH = BASE_DIR / "local_cache.json"
+DEVICE_AUTH_FILE_PATH = BASE_DIR / "device_auth.json"
 LOCK_FILE_PATH = BASE_DIR / "updating.lock"
 SCREENSHOT_TEMP_DIR = BASE_DIR / "temp_screenshots"
 SCREENSHOT_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
-# Faz 5: Versiyon ve Güncelleme Kilit Dosyası
+# Faz 5 & Faz 6: Versiyon ve Güncelleme Kilit Dosyası
 AGENT_VERSION = "1.0.0"
 
 # Varsayılan 6 Haneli Offline Master PIN: "145300" -> SHA-256 özeti
 DEFAULT_OFFLINE_PIN_HASH = hashlib.sha256(b"145300").hexdigest()
+
+
+def has_device_auth() -> bool:
+    """Cihazın daha önce 6 haneli kodla bir öğrenciye bağlanıp bağlanmadığını denetler."""
+    if not DEVICE_AUTH_FILE_PATH.is_file():
+        return False
+    try:
+        with open(DEVICE_AUTH_FILE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return bool(data.get("user_id") and data.get("family_id"))
+    except Exception:
+        return False
+
+
+def load_device_auth() -> dict:
+    """Kayıtlı cihaz yetkilendirme ve öğrenci oturum bilgilerini döner."""
+    if not DEVICE_AUTH_FILE_PATH.is_file():
+        return {}
+    try:
+        with open(DEVICE_AUTH_FILE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_device_auth(data: dict) -> None:
+    """Cihaz yetkilendirme ve öğrenci oturum bilgilerini diske mühürler."""
+    try:
+        with open(DEVICE_AUTH_FILE_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as err:
+        print(f"[DeviceAuth] Kaydetme hatası: {err}")
 
 
 @dataclass
@@ -155,9 +189,10 @@ class AgentConfig:
     audio_ducking_scalar: float = 0.20
     user_agent_signature: str = "FamilyOS-Windows-Agent/1.0"
 
-    # Faz 5: Versiyon & OTA Otomatik Güncelleyici
+    # Faz 5 & Faz 6: Versiyon & Eşleştirme Durumu
     agent_version: str = AGENT_VERSION
     ota_check_interval_sec: int = 1800  # Her 30 dakikada bir sürüm denetimi
+    is_paired: bool = False
 
     # Supabase Storage Bucket İsimleri
     screenshot_bucket: str = "task-proofs"
@@ -185,7 +220,84 @@ class AgentConfig:
                 print(f"[Config] Okuma hatası, varsayılanlar kullanılıyor: {err}")
         else:
             instance.save()
+
+        # Faz 6: Cihaz Eşleştirme (device_auth.json) Önceliği
+        auth_data = load_device_auth()
+        if auth_data and auth_data.get("user_id") and auth_data.get("family_id"):
+            instance.user_id = str(auth_data["user_id"])
+            instance.family_id = str(auth_data["family_id"])
+            instance.is_paired = True
+            token = auth_data.get("magic_login_token")
+            if token:
+                clean_pwa = instance.pwa_url.split("?")[0]
+                instance.pwa_url = f"{clean_pwa}?u={token}&auto_auth=true"
+        else:
+            instance.is_paired = has_device_auth()
+
         return instance
+
+    def pair_with_code(self, pairing_code: str) -> dict:
+        """
+        Supabase RPC `verify_desktop_pairing_code` uç noktasını çağırarak
+        6 haneli eşleştirme kodunu doğrular, `user_id` ve `family_id` bilgilerini
+        alarak hem `device_auth.json` hem de `agent_config.json` içine mühürler.
+        """
+        import urllib.request
+        clean_code = pairing_code.strip().replace("-", "").replace(" ", "")
+        url = f"{self.supabase_url}/rest/v1/rpc/verify_desktop_pairing_code"
+        headers = {
+            "apikey": self.supabase_anon_key,
+            "Authorization": f"Bearer {self.supabase_anon_key}",
+            "Content-Type": "application/json",
+        }
+        payload = json.dumps({"p_code": clean_code}).encode("utf-8")
+        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                if data and data.get("success"):
+                    self.user_id = data.get("user_id", self.user_id)
+                    self.family_id = data.get("family_id", self.family_id)
+                    token = data.get("magic_login_token", "")
+                    if token:
+                        clean_pwa = self.pwa_url.split("?")[0]
+                        self.pwa_url = f"{clean_pwa}?u={token}&auto_auth=true"
+                    self.is_paired = True
+
+                    # 1. device_auth.json içine mühürle
+                    auth_record = {
+                        "user_id": self.user_id,
+                        "family_id": self.family_id,
+                        "magic_login_token": token,
+                        "student_name": data.get("name", "Öğrenci"),
+                        "device_id": self.device_id,
+                        "paired_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "is_paired": True,
+                    }
+                    save_device_auth(auth_record)
+
+                    # 2. agent_config.json dosyasını güncelle
+                    self.save()
+
+                    # 3. Ailenin offline master PIN özetini çekip local_cache'e kaydet
+                    try:
+                        set_url = (
+                            f"{self.supabase_url}/rest/v1/family_settings"
+                            f"?family_id=eq.{self.family_id}&select=offline_master_pin_hash"
+                        )
+                        set_req = urllib.request.Request(set_url, headers=headers)
+                        with urllib.request.urlopen(set_req, timeout=5) as s_resp:
+                            s_data = json.loads(s_resp.read().decode("utf-8"))
+                            if s_data and s_data[0].get("offline_master_pin_hash"):
+                                LOCAL_CACHE.update_pin_hash(s_data[0]["offline_master_pin_hash"])
+                    except Exception as err:
+                        print(f"[Config] Offline PIN hash senkronizasyon uyarısı: {err}")
+
+                    return {"success": True, "data": data}
+                return {"success": False, "message": data.get("message", "Eşleştirme başarısız!")}
+        except Exception as err:
+            return {"success": False, "message": f"Bağlantı hatası: {err}"}
 
     @property
     def realtime_websocket_url(self) -> str:

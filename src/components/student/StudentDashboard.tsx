@@ -6,7 +6,7 @@ import confetti from 'canvas-confetti';
 import {
   Shield,
   Coins,
-  PiggyBank,
+  Vault,
   Flame,
   Sparkles,
   Camera,
@@ -263,7 +263,7 @@ export const StudentDashboard: React.FC = () => {
     await depositToPiggyBank(activeUser.id, piggyAmount);
     confetti({ particleCount: 50, spread: 60 });
     setFeedbackToast(
-      `🐷 ${piggyAmount} ${persona.pointsLabel} aktarıldı! Pazar gecesi +%20 bonus kazanacaksın!`
+      `💎 ${piggyAmount} ${persona.pointsLabel} aktarıldı! Pazar gecesi +%20 bonus kazanacaksın!`
     );
     setTimeout(() => setFeedbackToast(null), 4000);
   };
@@ -664,15 +664,15 @@ export const StudentDashboard: React.FC = () => {
               <div className="text-[10px] text-amber-300">{persona.pointsSubtext}</div>
             </div>
 
-            {/* Piggy Bank / Investment Vault */}
-            <div className="bg-slate-950/75 border border-pink-400/40 rounded-2xl p-3 text-center">
-              <div className="flex items-center justify-center gap-1 text-pink-400 text-[11px] font-extrabold mb-0.5">
-                <PiggyBank className="w-4 h-4" /> {persona.piggyLabel}
+            {/* Gold Vault / Investment Chest */}
+            <div className="bg-slate-950/75 border border-amber-400/40 rounded-2xl p-3 text-center">
+              <div className="flex items-center justify-center gap-1 text-amber-400 text-[11px] font-extrabold mb-0.5">
+                <Vault className="w-4 h-4" /> {persona.piggyLabel}
               </div>
               <div className="text-2xl font-black text-white">
                 {activeUser.piggy_bank_balance}
               </div>
-              <div className="text-[10px] text-pink-300">Pazar +%20 Bonus</div>
+              <div className="text-[10px] text-amber-300">Pazar +%20 Bonus</div>
             </div>
 
             {/* Daily Shields */}
@@ -866,11 +866,11 @@ export const StudentDashboard: React.FC = () => {
             isJunior ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
           } flex items-center justify-center gap-2 transition ${
             activeTab === 'piggy_wheel'
-              ? 'bg-pink-600 text-white shadow-lg'
+              ? 'bg-amber-600 text-white shadow-lg'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <PiggyBank className="w-4 h-4" />
+          <Vault className="w-4 h-4" />
           <span>{persona.piggyWheelTabTitle}</span>
         </button>
       </div>
@@ -1408,18 +1408,18 @@ export const StudentDashboard: React.FC = () => {
           {/* TAB 3: PIGGY BANK / INVESTMENT VAULT & LUCKY WHEEL */}
           {activeTab === 'piggy_wheel' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Piggy Bank / XP Vault Card */}
-              <div className="bg-gradient-to-br from-pink-950/80 via-slate-900 to-rose-950/80 border border-pink-500/40 rounded-3xl p-6 text-white">
-                <div className="w-12 h-12 rounded-2xl bg-pink-500/20 text-pink-300 flex items-center justify-center mb-3">
-                  <PiggyBank className="w-7 h-7" />
+              {/* Vault / Investment Chest Card */}
+              <div className="bg-gradient-to-br from-amber-950/80 via-slate-900 to-yellow-950/80 border border-amber-500/40 rounded-3xl p-6 text-white">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center mb-3">
+                  <Vault className="w-7 h-7" />
                 </div>
                 <h3 className="text-xl font-black mb-1">{persona.piggyTitle}</h3>
-                <p className="text-xs text-pink-200 mb-4">{persona.piggyDesc}</p>
+                <p className="text-xs text-amber-200 mb-4">{persona.piggyDesc}</p>
 
                 <div className="bg-slate-950/60 rounded-2xl p-4 mb-4 flex items-center justify-between">
                   <div>
                     <div className="text-xs text-slate-400">Mevcut Birikim</div>
-                    <div className="text-2xl font-black text-pink-400">
+                    <div className="text-2xl font-black text-amber-400">
                       {activeUser.piggy_bank_balance} {isJunior ? '⭐' : 'XP'}
                     </div>
                   </div>
@@ -1440,7 +1440,7 @@ export const StudentDashboard: React.FC = () => {
                       onClick={() => setPiggyAmount(amt)}
                       className={`flex-1 py-2 rounded-xl text-xs font-bold border ${
                         piggyAmount === amt
-                          ? 'bg-pink-500 text-white border-pink-300'
+                          ? 'bg-amber-500 text-slate-950 font-black border-amber-300'
                           : 'bg-slate-800 text-slate-300 border-slate-700'
                       }`}
                     >
@@ -1453,11 +1453,11 @@ export const StudentDashboard: React.FC = () => {
                   type="button"
                   disabled={activeUser.points_balance < piggyAmount}
                   onClick={handleDepositPiggy}
-                  className="w-full py-3 rounded-2xl bg-pink-500 hover:bg-pink-400 disabled:opacity-40 text-white font-black text-sm shadow-lg transition"
+                  className="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-black text-sm shadow-lg transition"
                 >
                   {isJunior
-                    ? `Sihirli Kumbaraya ${piggyAmount} Yıldız At 🐷`
-                    : `Yatırım Kasasına ${piggyAmount} XP Kilitle 📈`}
+                    ? `Altın Kumbaraya ${piggyAmount} Yıldız At 💰`
+                    : `Yatırım Kasasına ${piggyAmount} XP Kilitle 💎`}
                 </button>
               </div>
 

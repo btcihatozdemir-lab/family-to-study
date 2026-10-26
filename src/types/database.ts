@@ -96,15 +96,23 @@ export interface CompanionConfig {
   energy: number; // 0-100
 }
 
+export interface SchoolScheduleLesson {
+  period: number; // 1-8
+  name: string; // e.g. "Matematik", "Türkçe"
+  room?: string;
+}
+
 export interface SchoolScheduleItem {
   id: string;
   family_id: string;
   user_id: string;
   day_of_week: number; // 1: Pazartesi ... 7: Pazar
-  has_pe_class: boolean;
-  has_art_class: boolean;
-  custom_items_to_pack: string[];
-  reminder_note: string;
+  lessons?: SchoolScheduleLesson[];
+  extra_materials?: string[];
+  has_pe_class?: boolean;
+  has_art_class?: boolean;
+  custom_items_to_pack?: string[];
+  reminder_note?: string;
   updated_at?: string;
 }
 
@@ -128,6 +136,9 @@ export interface WhitelistConfig {
 export interface FamilyAccount {
   id: string;
   name: string;
+  family_name?: string;
+  owner_auth_id?: string | null;
+  family_invite_token?: string;
   family_code: string;
   parent_pin: string;
   subscription_tier: 'free' | 'pro';
@@ -186,6 +197,10 @@ export interface UserProfile {
   family_id: string;
   name: string;
   role: UserRole;
+  username?: string;
+  access_password?: string;
+  magic_login_token?: string;
+  desktop_pairing_code?: string;
   avatar_config: AvatarConfig;
   theme: 'cosmic-explorer' | 'candy-pop' | 'cyber-academy' | 'parent-command';
   points_balance: number;

@@ -60,6 +60,11 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { soundEngine } from '@/lib/soundEngine';
 import { useServerTime, computeSha256Hex } from '@/hooks/useServerTime';
 import { speakTurkishAnnouncement } from '@/lib/ttsAnnouncer';
+import {
+  getPersistentSession,
+  sealPersistentSession,
+  clearPersistentSession,
+} from '@/lib/sessionStorage';
 
 export interface LiveAlertBanner {
   id: string;
@@ -90,6 +95,26 @@ interface SharedMultiTenantState {
 }
 
 interface FamilyRealtimeContextValue {
+  isAuthenticated: boolean;
+  sessionLoading: boolean;
+  wizardOpen: boolean;
+  wizardOwnerEmail: string | null;
+  setWizardOpen: (open: boolean) => void;
+  createFamilyWizard: (params: {
+    familyName: string;
+    parentPin: string;
+    members: Array<{
+      name: string;
+      role: 'parent' | 'child';
+      grade: string;
+      ageGroup: 'kid' | 'preteen' | 'teen' | 'adult';
+      emoji: string;
+    }>;
+  }) => Promise<{ success: boolean; message: string }>;
+  regenerateDesktopPairingCode: (userId: string) => Promise<string>;
+  logout: () => Promise<void>;
+  loginSuccessWithUser: (userId: string, familyId: string) => Promise<void>;
+
   families: FamilyAccount[];
   activeFamily: FamilyAccount;
   familySettings: FamilySettings;
@@ -368,8 +393,13 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
     alarms: INITIAL_ALARMS,
   });
 
-  const [activeFamilyId, setActiveFamilyId] = useState<string>('fam-ozdemir');
-  const [activeUserId, setActiveUserId] = useState<string>('child-omer');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [sessionLoading, setSessionLoading] = useState<boolean>(true);
+  const [wizardOpen, setWizardOpen] = useState<boolean>(false);
+  const [wizardOwnerEmail, setWizardOwnerEmail] = useState<string | null>(null);
+
+  const [activeFamilyId, setActiveFamilyId] = useState<string>('');
+  const [activeUserId, setActiveUserId] = useState<string>('');
   const [activeDeviceType, setActiveDeviceType] = useState<DevicePlatform>('tablet');
   const [remainingSecondsByUser, setRemainingSecondsByUser] = useState<Record<string, number>>({});
   const [liveAlerts, setLiveAlerts] = useState<LiveAlertBanner[]>([]);
@@ -387,25 +417,73 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
   const activeFamilyRef = useRef<string>(activeFamilyId);
   activeFamilyRef.current = activeFamilyId;
 
+  const defaultEmptyFamily: FamilyAccount = useMemo(
+    () => ({
+      id: '',
+      name: 'Aile Portalı',
+      family_name: 'Aile Portalı',
+      family_code: '',
+      parent_pin: '1234',
+      subscription_tier: 'pro',
+    }),
+    []
+  );
+
+  const defaultEmptySettings: FamilySettings = useMemo(
+    () => ({
+      id: 'fset-default',
+      family_id: '',
+      family_chest_goal: 1000,
+      family_chest_current: 0,
+      family_chest_reward_title: 'Aile Ödülü',
+      offline_master_pin_hash:
+        '8154e6b1b7e76c0155248914635c86b29a19a6136b110924b4ef7e2310293572',
+      city_lat: 41.01,
+      city_lon: 28.97,
+      noise_threshold_db: 75,
+      autopilot_until: null,
+      happy_hour_discount_percent: 0,
+      happy_hour_ends_at: null,
+      tts_announcements_enabled: true,
+    }),
+    []
+  );
+
+  const defaultEmptyUser: UserProfile = useMemo(
+    () => ({
+      id: '',
+      family_id: '',
+      name: 'Giriş Yapılmadı',
+      role: 'child',
+      avatar_config: { emoji: '👤', bg: 'from-slate-700 to-slate-900', ageGroup: 'kid' },
+      theme: 'cosmic-explorer',
+      points_balance: 0,
+      piggy_bank_balance: 0,
+      daily_shields: 3,
+      streak_days: 0,
+      wheel_spins_available: 0,
+      current_mood: 'happy',
+      current_state: 'FREE_TIME',
+      state_ends_at: null,
+    }),
+    []
+  );
+
   const activeFamily = useMemo(
     () =>
       state.families.find((f) => f.id === activeFamilyId) ||
       state.families[0] ||
-      INITIAL_FAMILIES[0],
-    [state.families, activeFamilyId]
+      defaultEmptyFamily,
+    [state.families, activeFamilyId, defaultEmptyFamily]
   );
 
   // Scoped slices for the active family (Multi-Tenant Isolation)
   const familySettings = useMemo(() => {
     const found = (state.familySettings || []).find(
-      (fs) => (fs.family_id || 'fam-ozdemir') === activeFamily.id
+      (fs) => fs.family_id === activeFamily.id
     );
-    return (
-      found ||
-      INITIAL_FAMILY_SETTINGS.find((fs) => fs.family_id === activeFamily.id) ||
-      INITIAL_FAMILY_SETTINGS[0]
-    );
-  }, [state.familySettings, activeFamily.id]);
+    return found || defaultEmptySettings;
+  }, [state.familySettings, activeFamily.id, defaultEmptySettings]);
 
   const familyQrStations = useMemo(
     () =>
@@ -508,8 +586,8 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
     const found = familyUsers.find((u) => u.id === activeUserId);
     if (found) return found;
     const firstChild = familyUsers.find((u) => u.role === 'child');
-    return firstChild || familyUsers[0] || INITIAL_USERS[2];
-  }, [familyUsers, activeUserId]);
+    return firstChild || familyUsers[0] || defaultEmptyUser;
+  }, [familyUsers, activeUserId, defaultEmptyUser]);
 
   const pushAlert = useCallback(
     (
@@ -689,158 +767,202 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
     };
   }, [pushAlert]);
 
-  // Supabase Realtime Synchronization with Auto-Recovery & Try-Catch
+  // 1. Core Multi-Tenant Isolated Data Fetcher
+  const loadFamilyData = useCallback(async (targetFamId: string) => {
+    if (!supabase || !targetFamId) return;
+    try {
+      const [fam, fset, qr, pt, ss, ap, wi, u, d, t, s, r, rr, m, v, a] = await Promise.all([
+        supabase.from('families').select('*').eq('id', targetFamId),
+        supabase.from('family_settings').select('*').eq('family_id', targetFamId),
+        supabase.from('qr_stations').select('*').eq('family_id', targetFamId),
+        supabase.from('point_transfers').select('*').eq('family_id', targetFamId).order('created_at', { ascending: false }),
+        supabase.from('school_schedules').select('*').eq('family_id', targetFamId),
+        supabase.from('appeals').select('*').eq('family_id', targetFamId).order('created_at', { ascending: false }),
+        supabase.from('weekly_interviews').select('*').eq('family_id', targetFamId).order('created_at', { ascending: false }),
+        supabase.from('users').select('*').eq('family_id', targetFamId),
+        supabase.from('devices').select('*').eq('family_id', targetFamId),
+        supabase.from('tasks').select('*').eq('family_id', targetFamId),
+        supabase.from('task_submissions').select('*').eq('family_id', targetFamId).order('created_at', { ascending: false }),
+        supabase.from('rewards').select('*').eq('family_id', targetFamId),
+        supabase.from('reward_redemptions').select('*').eq('family_id', targetFamId).order('created_at', { ascending: false }),
+        supabase.from('messages').select('*').eq('family_id', targetFamId).order('created_at', { ascending: true }),
+        supabase.from('violation_logs').select('*').eq('family_id', targetFamId).order('created_at', { ascending: false }),
+        supabase.from('alarms_and_schedules').select('*').eq('family_id', targetFamId),
+      ]);
+
+      if (typeof window !== 'undefined' && fset.data?.length) {
+        fset.data.forEach((row: FamilySettings) => {
+          if (row.offline_master_pin_hash) {
+            localStorage.setItem(
+              `family_to_study_offline_pin_${row.family_id}`,
+              row.offline_master_pin_hash
+            );
+          }
+        });
+      }
+
+      setState({
+        families: (fam.data as FamilyAccount[]) || [],
+        familySettings: (fset.data as FamilySettings[]) || [],
+        qrStations: (qr.data as QRStation[]) || [],
+        pointTransfers: (pt.data as PointTransfer[]) || [],
+        schoolSchedules: (ss.data as SchoolScheduleItem[]) || [],
+        appeals: (ap.data as AppealRecord[]) || [],
+        weeklyInterviews: (wi.data as WeeklyInterviewRecord[]) || [],
+        users: (u.data as UserProfile[]) || [],
+        devices: (d.data as DeviceRecord[]) || [],
+        tasks: ((t.data as TaskItem[]) || []).map((task) => ({
+          ...task,
+          verification_type:
+            task.verification_type ||
+            (task.category === 'routine_morning' && !task.requires_photo
+              ? 'direct_submit'
+              : 'photo_optional'),
+        })),
+        submissions: ((s.data as TaskSubmission[]) || []).map((sub) => ({
+          ...sub,
+          submission_method:
+            sub.submission_method ||
+            (sub.photo_urls?.length ? 'photo_uploaded' : 'called_parent_for_check'),
+          photo_urls: sub.photo_urls || [],
+        })),
+        rewards: (r.data as RewardItem[]) || [],
+        redemptions: (rr.data as RewardRedemption[]) || [],
+        messages: (m.data as DirectMessage[]) || [],
+        violations: (v.data as ViolationLog[]) || [],
+        alarms: (a.data as AlarmSchedule[]) || [],
+      });
+    } catch (err) {
+      console.error('[loadFamilyData] Supabase veri yükleme hatası:', err);
+    }
+  }, []);
+
+  // Persistent session + Google auth lifecycle initialization
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
+    let isCancelled = false;
 
-    const normalizeWithFamily = <T extends { family_id?: string }>(
-      rows: T[] | null | undefined,
-      fallback: T[]
-    ): T[] => {
-      if (!rows || rows.length === 0) return fallback;
-      return rows.map((r) => ({
-        ...r,
-        family_id: r.family_id || 'fam-ozdemir',
-      }));
-    };
-
-    const fetchInitialSupabaseData = async () => {
-      if (!supabase) return;
+    const initAuth = async () => {
       try {
-        const [fam, fset, qr, pt, ss, ap, wi, u, d, t, s, r, rr, m, v, a] = await Promise.all([
-          supabase.from('families').select('*'),
-          supabase.from('family_settings').select('*'),
-          supabase.from('qr_stations').select('*'),
-          supabase.from('point_transfers').select('*').order('created_at', { ascending: false }),
-          supabase.from('school_schedules').select('*'),
-          supabase.from('appeals').select('*').order('created_at', { ascending: false }),
-          supabase.from('weekly_interviews').select('*').order('created_at', { ascending: false }),
-          supabase.from('users').select('*'),
-          supabase.from('devices').select('*'),
-          supabase.from('tasks').select('*'),
-          supabase.from('task_submissions').select('*').order('created_at', { ascending: false }),
-          supabase.from('rewards').select('*'),
-          supabase.from('reward_redemptions').select('*').order('created_at', { ascending: false }),
-          supabase.from('messages').select('*').order('created_at', { ascending: true }),
-          supabase.from('violation_logs').select('*').order('created_at', { ascending: false }),
-          supabase.from('alarms_and_schedules').select('*'),
-        ]);
-
-        if (typeof window !== 'undefined' && fset.data?.length) {
-          fset.data.forEach((row: FamilySettings) => {
-            if (row.offline_master_pin_hash) {
-              localStorage.setItem(
-                `family_to_study_offline_pin_${row.family_id}`,
-                row.offline_master_pin_hash
-              );
-            }
-          });
+        // 1. First check local persistent sealed session
+        const stored = await getPersistentSession();
+        if (stored && stored.familyId && stored.userId) {
+          if (isCancelled) return;
+          setIsAuthenticated(true);
+          setActiveFamilyId(stored.familyId);
+          setActiveUserId(stored.userId);
+          await loadFamilyData(stored.familyId);
+          setSessionLoading(false);
+          return;
         }
 
-        setState((prev) => ({
-          families: fam.data?.length ? (fam.data as FamilyAccount[]) : prev.families,
-          familySettings: normalizeWithFamily(
-            fset.data as FamilySettings[],
-            prev.familySettings || INITIAL_FAMILY_SETTINGS
-          ),
-          qrStations: normalizeWithFamily(
-            qr.data as QRStation[],
-            prev.qrStations || INITIAL_QR_STATIONS
-          ),
-          pointTransfers: pt.data
-            ? normalizeWithFamily(pt.data as PointTransfer[], [])
-            : prev.pointTransfers || [],
-          schoolSchedules: normalizeWithFamily(
-            ss.data as SchoolScheduleItem[],
-            prev.schoolSchedules || INITIAL_SCHOOL_SCHEDULES
-          ),
-          appeals: ap.data
-            ? normalizeWithFamily(ap.data as AppealRecord[], [])
-            : prev.appeals || INITIAL_APPEALS,
-          weeklyInterviews: wi.data
-            ? normalizeWithFamily(
-                wi.data as WeeklyInterviewRecord[],
-                INITIAL_WEEKLY_INTERVIEWS
-              )
-            : prev.weeklyInterviews || INITIAL_WEEKLY_INTERVIEWS,
-          users: normalizeWithFamily(u.data as UserProfile[], prev.users),
-          devices: normalizeWithFamily(d.data as DeviceRecord[], prev.devices),
-          tasks: normalizeWithFamily(t.data as TaskItem[], prev.tasks).map((task) => ({
-            ...task,
-            verification_type:
-              task.verification_type ||
-              (task.category === 'routine_morning' && !task.requires_photo
-                ? 'direct_submit'
-                : 'photo_optional'),
-          })),
-          submissions: s.data
-            ? normalizeWithFamily(s.data as TaskSubmission[], []).map((sub) => ({
-                ...sub,
-                submission_method:
-                  sub.submission_method ||
-                  (sub.photo_urls?.length ? 'photo_uploaded' : 'called_parent_for_check'),
-                photo_urls: sub.photo_urls || [],
-              }))
-            : prev.submissions,
-          rewards: normalizeWithFamily(r.data as RewardItem[], prev.rewards),
-          redemptions: rr.data
-            ? normalizeWithFamily(rr.data as RewardRedemption[], [])
-            : prev.redemptions,
-          messages: m.data
-            ? normalizeWithFamily(m.data as DirectMessage[], [])
-            : prev.messages,
-          violations: v.data
-            ? normalizeWithFamily(v.data as ViolationLog[], [])
-            : prev.violations,
-          alarms: normalizeWithFamily(a.data as AlarmSchedule[], prev.alarms),
-        }));
+        // 2. Check Supabase Google auth session
+        if (supabase) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const authUser = sessionData?.session?.user;
+          if (authUser) {
+            const { data: userFamilies } = await supabase
+              .from('families')
+              .select('*')
+              .eq('owner_auth_id', authUser.id);
+
+            if (userFamilies && userFamilies.length > 0) {
+              const myFam = userFamilies[0] as FamilyAccount;
+              const { data: famUsers } = await supabase
+                .from('users')
+                .select('*')
+                .eq('family_id', myFam.id);
+
+              const pUser =
+                (famUsers as UserProfile[])?.find((u) => u.role === 'parent') ||
+                (famUsers as UserProfile[])?.[0];
+
+              if (pUser) {
+                await sealPersistentSession({
+                  userId: pUser.id,
+                  familyId: myFam.id,
+                  sessionToken: sessionData.session.access_token || pUser.id,
+                  role: pUser.role,
+                  name: pUser.name,
+                  savedAt: Date.now(),
+                });
+                if (isCancelled) return;
+                setIsAuthenticated(true);
+                setActiveFamilyId(myFam.id);
+                setActiveUserId(pUser.id);
+                await loadFamilyData(myFam.id);
+                setSessionLoading(false);
+                return;
+              }
+            } else {
+              // First time entering with Google -> Show Family Setup Wizard
+              if (isCancelled) return;
+              setWizardOwnerEmail(authUser.email || null);
+              setWizardOpen(true);
+              setSessionLoading(false);
+              return;
+            }
+          }
+        }
       } catch (err) {
-        console.error('[Supabase Fetch] Veri çekme hatası:', err);
+        console.warn('[initAuth] Oturum başlatma hatası:', err);
+      } finally {
+        if (!isCancelled) {
+          setSessionLoading(false);
+        }
       }
     };
 
-    fetchInitialSupabaseData();
+    initAuth();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [loadFamilyData]);
+
+  // Supabase Realtime Synchronization with Auto-Recovery (Isolated per Family)
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !activeFamilyId) return;
 
     const channel = supabase
       .channel(`family-tenant-${activeFamilyId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'families' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reward_redemptions' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'violation_logs' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rewards' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'family_settings' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'qr_stations' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'point_transfers' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appeals' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_interviews' }, () => {
-        fetchInitialSupabaseData();
+        loadFamilyData(activeFamilyId);
       })
       .subscribe();
 
@@ -849,7 +971,7 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
         supabase?.removeChannel(channel);
       } catch {}
     };
-  }, [activeFamilyId]);
+  }, [activeFamilyId, loadFamilyData]);
 
   // Anti-Cheat: Sunucu Saati Senkronizasyonu (`useServerTime` Hook)
   const { serverTimeOffset, getServerNow } = useServerTime({
@@ -1272,6 +1394,189 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
     [commitAndBroadcast]
   );
 
+  const loginSuccessWithUser = useCallback(
+    async (userId: string, familyId: string) => {
+      setIsAuthenticated(true);
+      setActiveFamilyId(familyId);
+      setActiveUserId(userId);
+      await loadFamilyData(familyId);
+    },
+    [loadFamilyData]
+  );
+
+  const logout = useCallback(async () => {
+    await clearPersistentSession();
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch {}
+    }
+    setIsAuthenticated(false);
+    setActiveFamilyId('');
+    setActiveUserId('');
+    setState({
+      families: [],
+      familySettings: [],
+      qrStations: [],
+      pointTransfers: [],
+      schoolSchedules: [],
+      appeals: [],
+      weeklyInterviews: [],
+      users: [],
+      devices: [],
+      tasks: [],
+      submissions: [],
+      rewards: [],
+      redemptions: [],
+      messages: [],
+      violations: [],
+      alarms: [],
+    });
+  }, []);
+
+  const regenerateDesktopPairingCode = useCallback(
+    async (userId: string) => {
+      const newCode = `${Math.floor(100 + Math.random() * 900)}-${Math.floor(100 + Math.random() * 900)}`;
+      setState((prev) => ({
+        ...prev,
+        users: prev.users.map((u) => (u.id === userId ? { ...u, desktop_pairing_code: newCode } : u)),
+      }));
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          await supabase.from('users').update({ desktop_pairing_code: newCode }).eq('id', userId);
+        } catch {}
+      }
+
+      return newCode;
+    },
+    []
+  );
+
+  const createFamilyWizard = useCallback(
+    async (params: {
+      familyName: string;
+      parentPin: string;
+      members: Array<{
+        name: string;
+        role: 'parent' | 'child';
+        grade: string;
+        ageGroup: 'kid' | 'preteen' | 'teen' | 'adult';
+        emoji: string;
+      }>;
+    }) => {
+      const newFamId = `fam-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      const inviteToken = `inv-${Math.random().toString(36).slice(2, 10)}`;
+      const familyCode = `${params.familyName.slice(0, 4).toUpperCase().replace(/[^A-Z]/g, 'FAM')}-${new Date().getFullYear()}`;
+
+      let authUserId: string | null = null;
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          authUserId = authData?.user?.id || null;
+        } catch {}
+      }
+
+      const newFamily: FamilyAccount = {
+        id: newFamId,
+        name: params.familyName,
+        family_name: params.familyName,
+        owner_auth_id: authUserId,
+        family_invite_token: inviteToken,
+        family_code: familyCode,
+        parent_pin: params.parentPin || '1234',
+        subscription_tier: 'pro',
+        created_at: new Date().toISOString(),
+      };
+
+      const newUsers: UserProfile[] = params.members.map((m, idx) => {
+        const cleanName = m.name.toLowerCase().replace(/[^a-z0-9]/g, '') || 'birey';
+        const randNum = Math.floor(100 + Math.random() * 900);
+        const randPass = String(Math.floor(100000 + Math.random() * 900000));
+        const token = `mag-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const pairCode = `${Math.floor(100 + Math.random() * 900)}-${Math.floor(100 + Math.random() * 900)}`;
+
+        return {
+          id: `usr-${cleanName}-${idx + 1}-${Math.random().toString(36).slice(2, 6)}`,
+          family_id: newFamId,
+          name: m.name,
+          role: m.role,
+          username: `${cleanName}.${randNum}`,
+          access_password: randPass,
+          magic_login_token: token,
+          desktop_pairing_code: pairCode,
+          avatar_config: {
+            emoji: m.emoji || (m.role === 'parent' ? '👨‍✈️' : '🦁'),
+            bg: m.role === 'parent' ? 'from-indigo-600 to-purple-700' : 'from-amber-400 to-orange-500',
+            ageGroup: m.ageGroup || (m.role === 'parent' ? 'adult' : 'kid'),
+            grade: m.grade || (m.role === 'parent' ? 'Ebeveyn' : '4. Sınıf'),
+          },
+          theme: m.role === 'parent' ? 'parent-command' : 'cosmic-explorer',
+          points_balance: m.role === 'child' ? 25 : 0,
+          piggy_bank_balance: 0,
+          daily_shields: 3,
+          streak_days: 0,
+          wheel_spins_available: 0,
+          current_mood: 'happy',
+          current_state: 'FREE_TIME',
+          state_ends_at: null,
+        };
+      });
+
+      const primaryParent = newUsers.find((u) => u.role === 'parent') || newUsers[0];
+
+      const defaultSettings: FamilySettings = {
+        id: `fset-${newFamId}`,
+        family_id: newFamId,
+        family_chest_goal: 1000,
+        family_chest_current: 0,
+        family_chest_reward_title: '🍕 Ailece Pizza & Sinema Gecesi!',
+        offline_master_pin_hash: '8154e6b1b7e76c0155248914635c86b29a19a6136b110924b4ef7e2310293572',
+        city_lat: 41.01,
+        city_lon: 28.97,
+        noise_threshold_db: 75,
+        autopilot_until: null,
+        happy_hour_discount_percent: 0,
+        happy_hour_ends_at: null,
+        tts_announcements_enabled: true,
+      };
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          await supabase.from('families').insert(newFamily);
+          await supabase.from('family_settings').insert(defaultSettings);
+          await supabase.from('users').insert(newUsers);
+        } catch (err) {
+          console.warn('[createFamilyWizard] Supabase insert:', err);
+        }
+      }
+
+      await sealPersistentSession({
+        userId: primaryParent.id,
+        familyId: newFamId,
+        sessionToken: primaryParent.magic_login_token || primaryParent.id,
+        role: primaryParent.role,
+        name: primaryParent.name,
+        savedAt: Date.now(),
+      });
+
+      setState((prev) => ({
+        ...prev,
+        families: [newFamily, ...prev.families],
+        familySettings: [defaultSettings, ...prev.familySettings],
+        users: [...newUsers, ...prev.users],
+      }));
+
+      setIsAuthenticated(true);
+      setActiveFamilyId(newFamId);
+      setActiveUserId(primaryParent.id);
+      setWizardOpen(false);
+
+      return { success: true, message: `🎉 ${params.familyName} başarıyla kuruldu!` };
+    },
+    []
+  );
+
   const addChildToFamily = useCallback(
     async ({
       name,
@@ -1287,11 +1592,20 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
       try {
         const famId = activeFamilyRef.current;
         const newChildId = `child-${Date.now()}`;
+        const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ogrenci';
+        const randPass = String(Math.floor(100000 + Math.random() * 900000));
+        const token = `mag-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const pairCode = `${Math.floor(100 + Math.random() * 900)}-${Math.floor(100 + Math.random() * 900)}`;
+
         const newChild: UserProfile = {
           id: newChildId,
           family_id: famId,
           name: name.trim(),
           role: 'child',
+          username: `${cleanName}.${Math.floor(100 + Math.random() * 900)}`,
+          access_password: randPass,
+          magic_login_token: token,
+          desktop_pairing_code: pairCode,
           avatar_config: {
             emoji: emoji || '🦁',
             bg:
@@ -2367,7 +2681,7 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
             sound: 'victory',
             alert: {
               type: 'info',
-              title: `🐷 Kumbaraya +${amount} Puan Eklendi!`,
+              title: `💎 Birikim Kasasına +${amount} Puan Eklendi!`,
               message: `${student.name} puanlarını biriktiriyor! Pazar gecesi %20 sabır bonusu kazanacak.`,
             },
           }
@@ -2408,8 +2722,8 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
           sound: 'victory',
           alert: {
             type: 'approval',
-            title: '🐷 Pazar Gecesi +%20 Kumbara Sabır Bonusu!',
-            message: 'Ailenizdeki çocukların kumbara birikimlerine %20 sabır ödülü eklendi!',
+            title: '💎 Pazar Gecesi +%20 Birikim Kasası Sabır Bonusu!',
+            message: 'Ailenizdeki çocukların birikim kasalarına %20 sabır ödülü eklendi!',
           },
         }
       );
@@ -4201,6 +4515,15 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
   return (
     <FamilyRealtimeContext.Provider
       value={{
+        isAuthenticated,
+        sessionLoading,
+        wizardOpen,
+        wizardOwnerEmail,
+        setWizardOpen,
+        createFamilyWizard,
+        regenerateDesktopPairingCode,
+        logout,
+        loginSuccessWithUser,
         families: state.families,
         activeFamily,
         familySettings,

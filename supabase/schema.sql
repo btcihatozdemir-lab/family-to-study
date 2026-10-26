@@ -561,40 +561,7 @@ BEGIN
 END $$;
 
 -- ----------------------------------------------------------------------------
--- 7. MULTI-FAMILY SEED DATA
+-- 7. PRODUCTION READY (FAZ 6 - TAM MULTI-TENANT AİLE İZOLASYONU)
 -- ----------------------------------------------------------------------------
-INSERT INTO public.families (id, name, family_code, parent_pin, subscription_tier)
-VALUES
-    ('fam-ozdemir', 'Özdemir Ailesi', 'OZDEMIR-2026', '1234', 'pro'),
-    ('fam-yilmaz', 'Yılmaz Ailesi', 'YILMAZ-2026', '4321', 'pro')
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.users (id, family_id, name, role, avatar_config, theme, points_balance, piggy_bank_balance, daily_shields, streak_days, wheel_spins_available, current_mood, current_state)
-VALUES
-    ('parent-mom', 'fam-ozdemir', 'Anne (Kaptan)', 'parent', '{"emoji": "👩‍🚀", "bg": "from-rose-500 to-pink-600", "ageGroup": "adult"}'::jsonb, 'parent-command', 0, 0, 3, 0, 0, 'happy', 'FREE_TIME'),
-    ('parent-dad', 'fam-ozdemir', 'Baba (Komutan)', 'parent', '{"emoji": "👨‍✈️", "bg": "from-blue-600 to-indigo-700", "ageGroup": "adult"}'::jsonb, 'parent-command', 0, 0, 3, 0, 0, 'happy', 'FREE_TIME'),
-    ('child-omer', 'fam-ozdemir', 'Ömer', 'child', '{"emoji": "🦁", "bg": "from-amber-400 to-orange-500", "ageGroup": "kid", "grade": "3. Sınıf (9 Yaş)", "accentColor": "amber"}'::jsonb, 'cosmic-explorer', 145, 80, 3, 5, 1, 'excited', 'FREE_TIME'),
-    ('child-elif', 'fam-ozdemir', 'Elif', 'child', '{"emoji": "🦄", "bg": "from-purple-500 to-fuchsia-600", "ageGroup": "preteen", "grade": "7. Sınıf (13 Yaş)", "accentColor": "fuchsia"}'::jsonb, 'cyber-academy', 210, 150, 3, 4, 0, 'happy', 'FREE_TIME'),
-    ('parent-yilmaz-mom', 'fam-yilmaz', 'Ayşe Hanım (Anne)', 'parent', '{"emoji": "👩‍🏫", "bg": "from-emerald-500 to-teal-600", "ageGroup": "adult"}'::jsonb, 'parent-command', 0, 0, 3, 0, 0, 'happy', 'FREE_TIME'),
-    ('parent-yilmaz-dad', 'fam-yilmaz', 'Murat Bey (Baba)', 'parent', '{"emoji": "👨‍💻", "bg": "from-indigo-500 to-blue-600", "ageGroup": "adult"}'::jsonb, 'parent-command', 0, 0, 3, 0, 0, 'happy', 'FREE_TIME'),
-    ('child-kaan', 'fam-yilmaz', 'Kaan', 'child', '{"emoji": "🦖", "bg": "from-emerald-400 to-cyan-500", "ageGroup": "kid", "grade": "5. Sınıf (11 Yaş)", "accentColor": "emerald"}'::jsonb, 'cosmic-explorer', 120, 50, 3, 3, 0, 'happy', 'FREE_TIME'),
-    ('child-zeynep', 'fam-yilmaz', 'Zeynep', 'child', '{"emoji": "🦋", "bg": "from-pink-400 to-rose-500", "ageGroup": "kid", "grade": "2. Sınıf (8 Yaş)", "accentColor": "pink"}'::jsonb, 'candy-pop', 95, 40, 3, 5, 1, 'excited', 'FREE_TIME')
-ON CONFLICT (id) DO UPDATE SET family_id = EXCLUDED.family_id;
-
-INSERT INTO public.tasks (id, family_id, assigned_to, title, description, category, points, verification_type, requires_photo, duration_minutes, is_active, due_time)
-VALUES
-    ('task-tooth-morning', 'fam-ozdemir', 'both', 'Sabah Diş Fırçalama (2 Dk Müzikli Sayaç)', 'Müzikli fırçalama sayacını başlat ve 2 dakika boyunca dişlerini parlat!', 'routine_morning', 15, 'direct_submit', false, 2, true, '08:00'),
-    ('task-make-bed', 'fam-ozdemir', 'both', 'Yatağını & Odanı Düzenle', 'Yatağını topla, pijamalarını katla (İster fotoğraf çek, ister Annemi/Babamı Kontrole Çağır!).', 'routine_morning', 15, 'physical_check', false, 5, true, '08:15'),
-    ('task-pack-bag', 'fam-ozdemir', 'both', 'Okul Çantasını & Suluğunu Hazırla', 'Günün ders programına göre defter ve kitaplarını kontrol et.', 'routine_morning', 10, 'direct_submit', false, 5, true, '08:25'),
-    ('task-omer-math-proof', 'fam-ozdemir', 'child-omer', 'Matematik Etkinlik & Test Çözümü', 'Ödevini bitirdiğinde ister fotoğrafını çek, ister Anne/Babanı masana kontrole çağır!', 'academic', 45, 'photo_optional', false, 35, true, '17:30'),
-    ('task-omer-reading', 'fam-ozdemir', 'child-omer', 'Hikaye Kitabı Okuma & Özet Anlatımı', 'Bugünkü bölümünü oku; bitince fotoğraf çekebilir veya Anne/Babana anlatabilirsin.', 'academic', 35, 'photo_optional', false, 25, true, '19:00'),
-    ('task-elif-science-proof', 'fam-ozdemir', 'child-elif', 'Fen Bilimleri & Matematik Ünite Testi', 'Testini bitirdiğinde opsiyonel fotoğraf yükle veya ebeveyn kontrolü çağrısı gönder.', 'academic', 55, 'photo_optional', false, 40, true, '18:00'),
-    ('task-elif-english', 'fam-ozdemir', 'child-elif', 'İngilizce Kelime Kartları & Çalışma Kağıdı', 'Çalışmanı tamamladığında kontrole çağır veya fotoğraf ekle.', 'academic', 40, 'photo_optional', false, 30, true, '19:30'),
-    ('task-coop-livingroom', 'fam-ozdemir', 'both', '🤝 Kardeş Dayanışması: Oyun Alanı & Kitaplık Düzeni', 'Birlikte çalışma masalarını ve ortak kitaplığı düzenleyin, bitince Anne/Babayı kontrole çağırın!', 'coop', 50, 'physical_check', false, 20, true, '20:00'),
-    ('task-tooth-evening', 'fam-ozdemir', 'both', 'Gece Diş Fırçalama & Pijama Rutini', 'Uykudan önce 2 dakikalık müzikli diş fırçalama sayacını tamamla.', 'routine_evening', 20, 'direct_submit', false, 2, true, '21:15'),
-    ('task-yilmaz-tooth', 'fam-yilmaz', 'both', 'Sabah Diş Fırçalama (2 Dk Müzikli Sayaç)', 'Müzikli sayaçla dişlerini fırçala!', 'routine_morning', 15, 'direct_submit', false, 2, true, '08:00'),
-    ('task-yilmaz-math', 'fam-yilmaz', 'both', 'Günlük Ödev & Okuma Görevi', 'Bitirdiğinde fotoğraf gönder veya Anne/Babayı kontrole çağır.', 'academic', 50, 'photo_optional', false, 30, true, '18:00')
-ON CONFLICT (id) DO UPDATE SET
-    family_id = EXCLUDED.family_id,
-    verification_type = EXCLUDED.verification_type,
-    description = EXCLUDED.description;
+-- Sahte/mock veriler temizlenmiştir.
+-- Aileler Google OAuth veya Ebeveyn Kurulum Sihirbazı ile dinamik ve güvenli oluşturulur.

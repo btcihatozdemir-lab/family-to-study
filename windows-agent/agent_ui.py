@@ -53,7 +53,11 @@ from PyQt6.QtWidgets import (
     QLineEdit,
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
+from PyQt6.QtWebEngineCore import (
+    QWebEnginePage,
+    QWebEngineSettings,
+    QWebEngineProfile,
+)
 
 try:
     from supabase import create_client, Client
@@ -61,13 +65,21 @@ except ImportError:
     create_client = None
     Client = None
 
-from config import CONFIG, LOCAL_CACHE
+from config import (
+    CONFIG,
+    LOCAL_CACHE,
+    BASE_DIR,
+    has_device_auth,
+    load_device_auth,
+)
+from pairing_dialog import DevicePairingDialog, ensure_device_pairing_gui
 from system_hooks import (
     InputActivityTracker,
     LowLevelKeyboardBlocker,
     WhitelistEnforcer,
     NoiseMonitorThread,
     TTSAnnouncer,
+    announce_tomorrow_bag_schedule,
     terminate_task_manager_if_running,
     force_window_to_foreground,
     set_window_topmost_no_activate,
@@ -447,6 +459,9 @@ class FamilyWebEnginePage(QWebEnginePage):
 # ==============================================================================
 # ANA ENDPOINT AGENT PENCERESİ (WIDGET & TAM EKRAN KİLİT)
 # ==============================================================================
+DesktopPairingDialog = DevicePairingDialog
+
+
 class StudentEndpointWindow(QMainWindow):
     # Faz 4 & Faz 5 Durum (State) Matrisi Kontrolü:
     # Tam Ekran Kilitlenenler (showFullScreen + Kısayol Engelleme Aktif):
@@ -512,6 +527,7 @@ class StudentEndpointWindow(QMainWindow):
         self._seen_approved_appeal_ids: set[str] = set()
         self._last_announced_happy_hour_key: str = ""
         self._poller_bootstrapped: bool = False
+        self._last_bag_announcement_date: str = ""
 
         # Supabase istemcisi
         self.supabase: Optional[Client] = None
@@ -541,6 +557,11 @@ class StudentEndpointWindow(QMainWindow):
             on_blocked_shortcut_callback=self._on_blocked_os_shortcut
         )
         self.keyboard_blocker.start()
+
+        # Faz 6: İlk kurulumda 6 Haneli Cihaz Eşleştirme (device_auth.json) Denetimi
+        if not has_device_auth():
+            print("[AgentUI] Cihaz henüz bir öğrenciye eşlenmemiş, eşleştirme ekranı açılıyor...")
+            ensure_device_pairing_gui(self)
 
         # Pencere ve Arayüz Kurulumu
         self._setup_window_flags()
@@ -659,6 +680,27 @@ class StudentEndpointWindow(QMainWindow):
         bottom_row.addWidget(self.lbl_stats)
 
         bottom_row.addStretch()
+
+        self.btn_pair = QPushButton("🔗 Eşle")
+        self.btn_pair.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_pair.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #0284c7;
+                color: #ffffff;
+                font-size: 11px;
+                font-weight: 800;
+                padding: 5px 8px;
+                border-radius: 8px;
+                border: none;
+            }
+            QPushButton:hover {
+                background-color: #38bdf8;
+            }
+            """
+        )
+        self.btn_pair.clicked.connect(self._open_pairing_dialog)
+        bottom_row.addWidget(self.btn_pair)
 
         self.btn_toggle_expand = QPushButton("💬 Görev & Telsiz Aç")
         self.btn_toggle_expand.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -885,16 +927,20 @@ class StudentEndpointWindow(QMainWindow):
         self.web_page = FamilyWebEnginePage(self.web_view)
         self.web_view.setPage(self.web_page)
 
-        # Faz 4 Modül 1 (Özel User-Agent Tanımlama):
-        # QWebEngineView profilini başlatırken "FamilyOS-Windows-Agent/1.0" olarak
-        # özel User-Agent tanımla. Böylece PWA, Windows Ajanı içinde çalıştığını
-        # anlayıp kendi Web TTS ve Web Desibel ölçerini kapatacak, kontrolü
-        # tamamen Python ajanına bırakacaktır.
+        # Faz 6 & Faz 4 Modül 1 (Kalıcı Oturum, Çerez Yönetimi & Özel User-Agent):
+        # QWebEngineProfile üzerinde kalıcı çerez (ForcePersistentCookies) ve
+        # yerel depolama dizini (setPersistentStoragePath, setCachePath) aktif edilir.
         try:
-            profile = self.web_page.profile()
+            profile = QWebEngineProfile.defaultProfile()
             profile.setHttpUserAgent(CONFIG.user_agent_signature)
+            profile.setPersistentCookiesPolicy(
+                QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies
+            )
+            storage_path = str(BASE_DIR / "web_storage")
+            profile.setPersistentStoragePath(storage_path)
+            profile.setCachePath(storage_path)
         except Exception as err:
-            print(f"[AgentUI] User-Agent ayarlama uyarısı: {err}")
+            print(f"[AgentUI] WebEngine kalıcı profil ve çerez ayarlama uyarısı: {err}")
 
         # Faz 4 Modül 3 (PWA <-> Python Akıllı Pencere Boyutlandırma Köprüsü):
         # PWA içinde `document.title = "FAMILYOS_UI_EXPAND"` veya
@@ -918,7 +964,13 @@ class StudentEndpointWindow(QMainWindow):
             True,
         )
 
-        self.web_view.setUrl(QUrl(CONFIG.pwa_url))
+        # Faz 6: PWA'yı açarken ?u={magic_login_token}&auto_auth=true ile doğrudan oturumu aç
+        auth_data = load_device_auth()
+        token = auth_data.get("magic_login_token")
+        clean_pwa = CONFIG.pwa_url.split("?")[0]
+        target_pwa_url = f"{clean_pwa}?u={token}&auto_auth=true" if token else CONFIG.pwa_url
+
+        self.web_view.setUrl(QUrl(target_pwa_url))
         self.root_layout.addWidget(self.web_view, stretch=1)
 
         # D) FAZ 2: TAM EKRAN KİLİT MODU SAĞ ALT YEREL "🔑 Ebeveyn PIN" ÇUBUĞU
@@ -1417,6 +1469,19 @@ class StudentEndpointWindow(QMainWindow):
             return
         self._transition_to_widget_mode(expanded=not self.is_widget_expanded)
 
+    def _open_pairing_dialog(self) -> None:
+        """Faz 6: Ebeveyn panelinden alınan 6 haneli kodla cihazı eşleştirir."""
+        dlg = DevicePairingDialog(self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            auth_data = load_device_auth()
+            token = auth_data.get("magic_login_token")
+            clean_pwa = CONFIG.pwa_url.split("?")[0]
+            target_pwa_url = f"{clean_pwa}?u={token}&auto_auth=true" if token else CONFIG.pwa_url
+            self.web_view.setUrl(QUrl(target_pwa_url))
+            self.student_name = auth_data.get("student_name", CONFIG.user_id)
+            self.lbl_student.setText(f"👤 {self.student_name} • Cihaz Eşlendi")
+            print(f"[DesktopPairing] Cihaz başarıyla bağlandı! Öğrenci: {CONFIG.user_id}, Aile: {CONFIG.family_id}")
+
     def _open_offline_pin_dialog(self) -> None:
         """
         Sağ alt köşedeki '🔑 Ebeveyn PIN' butonuna tıklandığında 6 haneli
@@ -1511,9 +1576,22 @@ class StudentEndpointWindow(QMainWindow):
                         f"Serbest zaman başladı {self.student_name}! İyi eğlenceler."
                     )
                 elif new_state == "ROUTINE_TIME":
-                    self.tts_announcer.announce(
-                        f"Günlük rutin zamanı başladı {self.student_name}!"
-                    )
+                    # Faz 6: Akşam saatlerinde (17:00+) çanta hazırlama anonsunu otomatik seslendir
+                    if datetime.now().hour >= 17:
+                        threading.Thread(
+                            target=announce_tomorrow_bag_schedule,
+                            args=(
+                                self.supabase,
+                                CONFIG.user_id,
+                                self.student_name,
+                                self.tts_announcer,
+                            ),
+                            daemon=True,
+                        ).start()
+                    else:
+                        self.tts_announcer.announce(
+                            f"Günlük rutin zamanı başladı {self.student_name}!"
+                        )
                 elif new_state == "COMPUTER_STUDY":
                     self.tts_announcer.announce(
                         f"Bilgisayarlı ders modu başladı {self.student_name}. Sadece izin verilen ders araçları açık kalabilir."
@@ -2077,32 +2155,86 @@ class StudentEndpointWindow(QMainWindow):
                 except Exception:
                     pass
 
+                # 2D) Faz 6: Akşam saat 17:00 sonrasında "Çanta Hazırlama" (routine_evening) görevi varsa
+                #     ve bugün henüz seslendirilmediyse yarının derslerini anons et
+                try:
+                    now_hour = datetime.now().hour
+                    today_str = datetime.now().strftime("%Y-%m-%d")
+                    if now_hour >= 17 and self._last_bag_announcement_date != today_str:
+                        bag_task_res = (
+                            self.supabase.table("tasks")
+                            .select("id, title, category, is_active")
+                            .eq("user_id", CONFIG.user_id)
+                            .eq("category", "routine_evening")
+                            .eq("is_active", True)
+                            .limit(1)
+                            .execute()
+                        )
+                        if bag_task_res.data:
+                            self._last_bag_announcement_date = today_str
+                            threading.Thread(
+                                target=announce_tomorrow_bag_schedule,
+                                args=(
+                                    self.supabase,
+                                    CONFIG.user_id,
+                                    self.student_name,
+                                    self.tts_announcer,
+                                ),
+                                daemon=True,
+                            ).start()
+                except Exception:
+                    pass
+
                 self._poller_bootstrapped = True
 
-                # 3) Ebeveynden gelen uzaktan "[CMD:SCREENSHOT]" komutu var mı kontrol et
-                cmd_res = (
-                    self.supabase.table("messages")
-                    .select("*")
-                    .eq("receiver_id", CONFIG.user_id)
-                    .eq("is_read", False)
-                    .like("content", "%[CMD:SCREENSHOT]%")
-                    .order("created_at", desc=True)
-                    .limit(1)
-                    .execute()
-                )
-                if cmd_res.data:
-                    cmd_msg = cmd_res.data[0]
-                    cmd_id = cmd_msg["id"]
-                    if cmd_id not in self._processed_command_ids:
-                        self._processed_command_ids.add(cmd_id)
-                        # Komutu okundu işaretle
-                        self.supabase.table("messages").update(
-                            {"is_read": True}
-                        ).eq("id", cmd_id).execute()
-                        # Ekran görüntüsü alma sinyalini tetikle
-                        self.signals.remote_screenshot_requested.emit(
-                            cmd_msg.get("sender_id", CONFIG.parent_receiver_id)
-                        )
+                # 3) Ebeveynden gelen uzaktan komutlar ([CMD:SCREENSHOT], [CMD:PACK_BAG])
+                try:
+                    cmd_res = (
+                        self.supabase.table("messages")
+                        .select("*")
+                        .eq("receiver_id", CONFIG.user_id)
+                        .eq("is_read", False)
+                        .order("created_at", desc=True)
+                        .limit(5)
+                        .execute()
+                    )
+                    if cmd_res.data:
+                        for cmd_msg in cmd_res.data:
+                            cmd_id = str(cmd_msg.get("id") or "")
+                            if not cmd_id or cmd_id in self._processed_command_ids:
+                                continue
+                            content = str(cmd_msg.get("content") or "")
+                            if "[CMD:SCREENSHOT]" in content:
+                                self._processed_command_ids.add(cmd_id)
+                                try:
+                                    self.supabase.table("messages").update(
+                                        {"is_read": True}
+                                    ).eq("id", cmd_id).execute()
+                                except Exception:
+                                    pass
+                                self.signals.remote_screenshot_requested.emit(
+                                    cmd_msg.get("sender_id", CONFIG.parent_receiver_id)
+                                )
+                            elif "[CMD:PACK_BAG]" in content:
+                                self._processed_command_ids.add(cmd_id)
+                                try:
+                                    self.supabase.table("messages").update(
+                                        {"is_read": True}
+                                    ).eq("id", cmd_id).execute()
+                                except Exception:
+                                    pass
+                                threading.Thread(
+                                    target=announce_tomorrow_bag_schedule,
+                                    args=(
+                                        self.supabase,
+                                        CONFIG.user_id,
+                                        self.student_name,
+                                        self.tts_announcer,
+                                    ),
+                                    daemon=True,
+                                ).start()
+                except Exception:
+                    pass
 
             except Exception as err:
                 print(f"[AgentUI] Supabase dinleme hatası (yeniden bağlanılacak): {err}")
