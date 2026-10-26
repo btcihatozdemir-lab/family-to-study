@@ -162,6 +162,28 @@ interface FamilyRealtimeContextValue {
     ageGroup: 'kid' | 'preteen' | 'teen';
     emoji: string;
   }) => Promise<void>;
+  addParentToFamily: (params: {
+    name: string;
+    roleTitle?: string;
+  }) => Promise<{ success: boolean; user?: UserProfile; message: string }>;
+  updateFamilyMember: (params: {
+    userId: string;
+    name: string;
+    grade?: string;
+    ageGroup?: 'kid' | 'preteen' | 'teen';
+    emoji?: string;
+    accessPassword?: string;
+  }) => Promise<{ success: boolean; message: string }>;
+  deleteFamilyMember: (
+    userId: string
+  ) => Promise<{ success: boolean; message: string }>;
+  regenerateMemberCredentials: (userId: string) => Promise<{
+    success: boolean;
+    newPassword?: string;
+    newMagicToken?: string;
+    newPairingCode?: string;
+    message: string;
+  }>;
   addTaskToFamily: (params: {
     assignedTo: string;
     title: string;
@@ -1670,6 +1692,257 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
         }
       } catch (err) {
         console.error('[addChildToFamily] Hata:', err);
+      }
+    },
+    [commitAndBroadcast]
+  );
+
+  const addParentToFamily = useCallback(
+    async ({
+      name,
+      roleTitle,
+    }: {
+      name: string;
+      roleTitle?: string;
+    }) => {
+      try {
+        const famId = activeFamilyRef.current;
+        const newParentId = `parent-${Date.now()}`;
+        const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ebeveyn';
+        const randPass = String(Math.floor(100000 + Math.random() * 900000));
+        const token = `mag-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+        const newParent: UserProfile = {
+          id: newParentId,
+          family_id: famId,
+          name: name.trim(),
+          role: 'parent',
+          username: `${cleanName}.${Math.floor(100 + Math.random() * 900)}`,
+          access_password: randPass,
+          magic_login_token: token,
+          avatar_config: {
+            emoji: roleTitle?.toLowerCase().includes('anne') ? '👩‍💼' : roleTitle?.toLowerCase().includes('baba') ? '👨‍💼' : '🧑‍✈️',
+            bg: 'from-blue-600 to-indigo-700',
+            ageGroup: 'adult',
+            roleTitle: roleTitle || 'Ebeveyn',
+          },
+          theme: 'parent-command',
+          points_balance: 0,
+          piggy_bank_balance: 0,
+          daily_shields: 3,
+          streak_days: 1,
+          wheel_spins_available: 0,
+          current_mood: 'happy',
+          current_state: 'FREE_TIME',
+          state_ends_at: null,
+        };
+
+        commitAndBroadcast(
+          (prev) => ({
+            ...prev,
+            users: [...prev.users, newParent],
+          }),
+          {
+            familyId: famId,
+            sound: 'victory',
+            alert: {
+              type: 'info',
+              title: `🎉 Yeni Ebeveyn Eklendi: ${newParent.name}`,
+              message: `${newParent.name} (${roleTitle || 'Ebeveyn'}) aileye dahil edildi!`,
+            },
+          }
+        );
+
+        if (isSupabaseConfigured && supabase) {
+          await supabase.from('users').insert(newParent);
+        }
+
+        return { success: true, user: newParent, message: `${newParent.name} başarıyla eklendi.` };
+      } catch (err) {
+        console.error('[addParentToFamily] Hata:', err);
+        return { success: false, message: 'Ebeveyn eklenirken bir hata oluştu.' };
+      }
+    },
+    [commitAndBroadcast]
+  );
+
+  const updateFamilyMember = useCallback(
+    async ({
+      userId,
+      name,
+      grade,
+      ageGroup,
+      emoji,
+      accessPassword,
+    }: {
+      userId: string;
+      name: string;
+      grade?: string;
+      ageGroup?: 'kid' | 'preteen' | 'teen';
+      emoji?: string;
+      accessPassword?: string;
+    }) => {
+      try {
+        const famId = activeFamilyRef.current;
+        let updatedUser: UserProfile | null = null;
+
+        commitAndBroadcast(
+          (prev) => {
+            const newUsers = prev.users.map((u) => {
+              if (u.id === userId) {
+                const newAvatar = {
+                  ...u.avatar_config,
+                  ...(emoji ? { emoji } : {}),
+                  ...(grade ? { grade } : {}),
+                  ...(ageGroup ? { ageGroup } : {}),
+                };
+                updatedUser = {
+                  ...u,
+                  name: name.trim(),
+                  ...(accessPassword ? { access_password: accessPassword.trim() } : {}),
+                  avatar_config: newAvatar,
+                };
+                return updatedUser;
+              }
+              return u;
+            });
+            return { ...prev, users: newUsers };
+          },
+          {
+            familyId: famId,
+            alert: {
+              type: 'info',
+              title: '👤 Profil Güncellendi',
+              message: `${name} bilgileri güncellendi.`,
+            },
+          }
+        );
+
+        if (isSupabaseConfigured && supabase && updatedUser) {
+          const userObj = updatedUser as UserProfile;
+          await supabase
+            .from('users')
+            .update({
+              name: userObj.name,
+              access_password: userObj.access_password,
+              avatar_config: userObj.avatar_config,
+            })
+            .eq('id', userId);
+        }
+
+        return { success: true, message: 'Üye bilgileri başarıyla güncellendi.' };
+      } catch (err) {
+        console.error('[updateFamilyMember] Hata:', err);
+        return { success: false, message: 'Güncelleme sırasında bir hata oluştu.' };
+      }
+    },
+    [commitAndBroadcast]
+  );
+
+  const deleteFamilyMember = useCallback(
+    async (userId: string) => {
+      try {
+        const famId = activeFamilyRef.current;
+        const targetUser = state.users.find((u) => u.id === userId);
+        if (!targetUser) {
+          return { success: false, message: 'Kullanıcı bulunamadı.' };
+        }
+
+        // Ailede en az 1 ebeveyn kalmalı
+        if (targetUser.role === 'parent') {
+          const parentCount = state.users.filter((u) => u.role === 'parent').length;
+          if (parentCount <= 1) {
+            return {
+              success: false,
+              message: 'Ailede en az bir ebeveyn hesabı bulunmalıdır. Son ebeveyni silemezsiniz.',
+            };
+          }
+        }
+
+        commitAndBroadcast(
+          (prev) => ({
+            ...prev,
+            users: prev.users.filter((u) => u.id !== userId),
+            tasks: prev.tasks.filter((t) => t.assigned_to !== userId),
+            devices: prev.devices.filter((d) => d.user_id !== userId),
+          }),
+          {
+            familyId: famId,
+            sound: 'violation',
+            alert: {
+              type: 'info',
+              title: '🗑️ Birey Aileden Çıkarıldı',
+              message: `${targetUser.name} aile akademisinden çıkarıldı.`,
+            },
+          }
+        );
+
+        if (isSupabaseConfigured && supabase) {
+          await supabase.from('users').delete().eq('id', userId);
+        }
+
+        return { success: true, message: `${targetUser.name} başarıyla silindi.` };
+      } catch (err) {
+        console.error('[deleteFamilyMember] Hata:', err);
+        return { success: false, message: 'Silme işlemi sırasında hata oluştu.' };
+      }
+    },
+    [commitAndBroadcast, state.users]
+  );
+
+  const regenerateMemberCredentials = useCallback(
+    async (userId: string) => {
+      try {
+        const famId = activeFamilyRef.current;
+        const newPass = String(Math.floor(100000 + Math.random() * 900000));
+        const newToken = `mag-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const newPair = `${Math.floor(100 + Math.random() * 900)}-${Math.floor(100 + Math.random() * 900)}`;
+
+        commitAndBroadcast(
+          (prev) => ({
+            ...prev,
+            users: prev.users.map((u) =>
+              u.id === userId
+                ? {
+                    ...u,
+                    access_password: newPass,
+                    magic_login_token: newToken,
+                    desktop_pairing_code: newPair,
+                  }
+                : u
+            ),
+          }),
+          {
+            familyId: famId,
+            alert: {
+              type: 'info',
+              title: '🔑 Şifre & Bağlantı Yenilendi',
+              message: 'Yeni 6 haneli şifre ve sihirli giriş bağlantısı oluşturuldu.',
+            },
+          }
+        );
+
+        if (isSupabaseConfigured && supabase) {
+          await supabase
+            .from('users')
+            .update({
+              access_password: newPass,
+              magic_login_token: newToken,
+              desktop_pairing_code: newPair,
+            })
+            .eq('id', userId);
+        }
+
+        return {
+          success: true,
+          newPassword: newPass,
+          newMagicToken: newToken,
+          newPairingCode: newPair,
+          message: 'Giriş bilgileri yenilendi.',
+        };
+      } catch (err) {
+        console.error('[regenerateMemberCredentials] Hata:', err);
+        return { success: false, message: 'Giriş bilgileri yenilenirken hata oluştu.' };
       }
     },
     [commitAndBroadcast]
@@ -4566,6 +4839,10 @@ export const FamilyRealtimeProvider: React.FC<{ children: React.ReactNode }> = (
         dismissAlert,
         isLiveSupabase: isSupabaseConfigured,
         addChildToFamily,
+        addParentToFamily,
+        updateFamilyMember,
+        deleteFamilyMember,
+        regenerateMemberCredentials,
         addTaskToFamily,
         addRewardToFamily,
         proposeTaskByStudent,

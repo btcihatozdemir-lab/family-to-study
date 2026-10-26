@@ -189,6 +189,7 @@ export interface AvatarConfig {
   bg: string;
   ageGroup: 'kid' | 'preteen' | 'teen' | 'adult';
   grade?: string;
+  roleTitle?: string;
   accentColor?: string;
 }
 

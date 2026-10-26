@@ -31,6 +31,8 @@ import {
   Clock,
   Activity,
   UserPlus,
+  Users,
+  Edit3,
   ListPlus,
   Sparkles,
   Scale,
@@ -44,6 +46,7 @@ import { WalkieTalkieDM } from '@/components/shared/WalkieTalkieDM';
 import { PrintableQRStationCard } from '@/components/shared/QRCodeScannerAndPrint';
 import { SuccessAlbumModal } from '@/components/shared/SuccessAlbumModal';
 import { WeeklyScheduleEditorModal } from '@/components/schedule/WeeklyScheduleEditorModal';
+import { FamilyMembersManagerModal } from '@/components/parent/FamilyMembersManagerModal';
 import { buildMagicLoginUrl } from '@/lib/urlHelper';
 import {
   QRStationLinkedAction,
@@ -146,6 +149,8 @@ export const ParentCommandCenter: React.FC = () => {
     | 'schedule_weather'
   >('none');
   const [showSuccessAlbum, setShowSuccessAlbum] = useState(false);
+  const [isFamilyMembersModalOpen, setIsFamilyMembersModalOpen] = useState(false);
+  const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<string | null>(null);
   const [selectedStudentForSchedule, setSelectedStudentForSchedule] = useState<UserProfile | null>(null);
   const [selectedStudentForQR, setSelectedStudentForQR] = useState<UserProfile | null>(null);
   const [revealedPasswordId, setRevealedPasswordId] = useState<string | null>(null);
@@ -489,6 +494,17 @@ export const ParentCommandCenter: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
+              onClick={() => {
+                setSelectedMemberForEdit(null);
+                setIsFamilyMembersModalOpen(true);
+              }}
+              className="px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-1.5 shadow-lg shadow-indigo-950/50 transition border border-purple-400/50 active:scale-95"
+            >
+              <Users className="w-4 h-4 text-purple-200" />
+              <span>👨‍👩‍👧‍👦 Aile Bireyleri & Hesaplar</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setShowSuccessAlbum(true)}
               className="px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg transition"
             >
@@ -672,6 +688,18 @@ export const ParentCommandCenter: React.FC = () => {
           </span>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedMemberForEdit(null);
+                setIsFamilyMembersModalOpen(true);
+              }}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border border-purple-400/60 shadow-md shadow-indigo-950/50 transition active:scale-95"
+            >
+              <Users className="w-3.5 h-3.5 text-purple-200" />
+              <span>👨‍👩‍👧‍👦 Aile Bireyleri & Şifre / Link Yönetimi</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setMgmtTab(mgmtTab === 'child' ? 'none' : 'child')}
@@ -1421,6 +1449,18 @@ export const ParentCommandCenter: React.FC = () => {
                       >
                         {moodInfo.emoji} {moodInfo.label}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedMemberForEdit(child.id);
+                          setIsFamilyMembersModalOpen(true);
+                        }}
+                        className="ml-1 px-2.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1 transition"
+                        title={`${child.name} Bilgilerini Düzenle veya Sil`}
+                      >
+                        <Edit3 className="w-3 h-3 text-indigo-400" />
+                        <span>Düzenle / Sil</span>
+                      </button>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 mt-1.5">
@@ -2518,6 +2558,16 @@ export const ParentCommandCenter: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Aile Bireyleri & Hesap Yönetimi Modalı */}
+      <FamilyMembersManagerModal
+        isOpen={isFamilyMembersModalOpen}
+        onClose={() => {
+          setIsFamilyMembersModalOpen(false);
+          setSelectedMemberForEdit(null);
+        }}
+        initialSelectedUserId={selectedMemberForEdit}
+      />
     </div>
   );
 };
