@@ -44,6 +44,7 @@ import { WalkieTalkieDM } from '@/components/shared/WalkieTalkieDM';
 import { PrintableQRStationCard } from '@/components/shared/QRCodeScannerAndPrint';
 import { SuccessAlbumModal } from '@/components/shared/SuccessAlbumModal';
 import { WeeklyScheduleEditorModal } from '@/components/schedule/WeeklyScheduleEditorModal';
+import { buildMagicLoginUrl } from '@/lib/urlHelper';
 import {
   QRStationLinkedAction,
   RewardTier,
@@ -1817,8 +1818,7 @@ export const ParentCommandCenter: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                        const link = `${origin}/?u=${child.magic_login_token || child.id}`;
+                        const link = buildMagicLoginUrl(child.magic_login_token || child.id);
                         if (typeof navigator !== 'undefined') {
                           navigator.clipboard.writeText(link);
                           showStatus(`📲 ${child.name} için tek tıkla sihirli giriş linki kopyalandı!`);
@@ -2492,9 +2492,9 @@ export const ParentCommandCenter: React.FC = () => {
             <div className="w-56 h-56 mx-auto bg-white p-3 rounded-2xl flex items-center justify-center shadow-lg">
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-                  `${typeof window !== 'undefined' ? window.location.origin : ''}/?u=${
+                  buildMagicLoginUrl(
                     selectedStudentForQR.magic_login_token || selectedStudentForQR.id
-                  }`
+                  )
                 )}`}
                 alt="Giriş QR Kodu"
                 className="w-full h-full object-contain"

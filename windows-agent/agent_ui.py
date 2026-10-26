@@ -972,7 +972,7 @@ class StudentEndpointWindow(QMainWindow):
         # Faz 6: PWA'yı açarken ?u={magic_login_token}&auto_auth=true ile doğrudan oturumu aç
         auth_data = load_device_auth()
         token = auth_data.get("magic_login_token")
-        clean_pwa = CONFIG.pwa_url.split("?")[0]
+        clean_pwa = CONFIG.pwa_url.split("?")[0].rstrip("/") + "/"
         target_pwa_url = f"{clean_pwa}?u={token}&auto_auth=true" if token else CONFIG.pwa_url
 
         self.web_view.setUrl(QUrl(target_pwa_url))
@@ -1480,7 +1480,7 @@ class StudentEndpointWindow(QMainWindow):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             auth_data = load_device_auth()
             token = auth_data.get("magic_login_token")
-            clean_pwa = CONFIG.pwa_url.split("?")[0]
+            clean_pwa = CONFIG.pwa_url.split("?")[0].rstrip("/") + "/"
             target_pwa_url = f"{clean_pwa}?u={token}&auto_auth=true" if token else CONFIG.pwa_url
             self.web_view.setUrl(QUrl(target_pwa_url))
             self.student_name = auth_data.get("student_name", CONFIG.user_id)

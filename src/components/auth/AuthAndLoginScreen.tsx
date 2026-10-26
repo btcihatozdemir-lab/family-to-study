@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { sealPersistentSession } from '@/lib/sessionStorage';
+import { getOAuthRedirectUrl } from '@/lib/urlHelper';
 import { UserProfile } from '@/types/database';
 
 interface AuthAndLoginScreenProps {
@@ -116,13 +117,7 @@ export const AuthAndLoginScreen: React.FC<AuthAndLoginScreenProps> = ({
       if (!supabase) {
         throw new Error('Supabase istemcisi yapılandırılmamış.');
       }
-      let redirectUrl = 'https://btcihatozdemir-lab.github.io/family-to-study/';
-      if (typeof window !== 'undefined') {
-        const host = window.location.hostname;
-        if (!host.includes('github.io')) {
-          redirectUrl = `${window.location.origin}/`;
-        }
-      }
+      const redirectUrl = getOAuthRedirectUrl();
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

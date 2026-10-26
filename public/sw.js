@@ -36,11 +36,14 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const scopeUrl = self.registration.scope || '/';
+  const iconUrl = new URL('./icon.svg', scopeUrl).href;
+
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: '/icon.svg',
-      badge: '/icon.svg',
+      icon: iconUrl,
+      badge: iconUrl,
       tag: payload.tag,
       vibrate: [200, 100, 200, 100, 400],
       requireInteraction: payload.requireInteraction,
@@ -55,7 +58,7 @@ self.addEventListener('notificationclick', (event) => {
       if (clientList.length > 0) {
         return clientList[0].focus();
       }
-      return self.clients.openWindow('/');
+      return self.clients.openWindow(self.registration.scope || '/');
     })
   );
 });

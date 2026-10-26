@@ -229,7 +229,7 @@ class AgentConfig:
             instance.is_paired = True
             token = auth_data.get("magic_login_token")
             if token:
-                clean_pwa = instance.pwa_url.split("?")[0]
+                clean_pwa = instance.pwa_url.split("?")[0].rstrip("/") + "/"
                 instance.pwa_url = f"{clean_pwa}?u={token}&auto_auth=true"
         else:
             instance.is_paired = has_device_auth()
@@ -261,7 +261,7 @@ class AgentConfig:
                     self.family_id = data.get("family_id", self.family_id)
                     token = data.get("magic_login_token", "")
                     if token:
-                        clean_pwa = self.pwa_url.split("?")[0]
+                        clean_pwa = self.pwa_url.split("?")[0].rstrip("/") + "/"
                         self.pwa_url = f"{clean_pwa}?u={token}&auto_auth=true"
                     self.is_paired = True
 
