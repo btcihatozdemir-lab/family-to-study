@@ -33,7 +33,7 @@ class TaskModel {
     return TaskModel(
       id: json['id']?.toString() ?? '',
       familyId: json['family_id']?.toString() ?? '',
-      userId: json['user_id']?.toString(),
+      userId: json['assigned_to']?.toString() ?? json['user_id']?.toString(),
       title: json['title']?.toString() ?? 'Görev',
       description: json['description']?.toString() ?? '',
       points: json['points'] is int
@@ -53,5 +53,8 @@ class TaskModel {
   bool get isPending => status == 'pending';
   bool get isRejected => status == 'rejected';
   bool get isRace => isFirstComeRace;
-  bool get requiresPhoto => verificationType == 'photo_proof';
+  bool get requiresPhoto =>
+      verificationType == 'photo_proof' ||
+      verificationType == 'photo_optional' ||
+      verificationType == 'qr_scan';
 }

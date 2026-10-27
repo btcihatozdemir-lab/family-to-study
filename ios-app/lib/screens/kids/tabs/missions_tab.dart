@@ -4,6 +4,12 @@ import '../../../theme/kids_theme.dart';
 import '../../../models/task_model.dart';
 import '../../../models/user_model.dart';
 import '../../../services/supabase_service.dart';
+import '../modals/appeal_modal.dart';
+import '../modals/companion_modal.dart';
+import '../modals/grace_period_modal.dart';
+import '../modals/success_album_modal.dart';
+import '../modals/weekly_interview_modal.dart';
+import '../modals/propose_task_modal.dart';
 
 class MissionsTab extends StatefulWidget {
   final UserModel student;
@@ -23,14 +29,21 @@ class _MissionsTabState extends State<MissionsTab> {
   List<TaskModel> _tasks = [];
   bool _isLoading = true;
   String _selectedCategory = 'all';
+  String _currentMood = 'happy';
   final ImagePicker _picker = ImagePicker();
+
+  final List<Map<String, String>> _moods = [
+    {'id': 'happy', 'emoji': '😊', 'label': 'Mutlu'},
+    {'id': 'excited', 'emoji': '🤩', 'label': 'Enerjik'},
+    {'id': 'tired', 'emoji': '🥱', 'label': 'Yorgun'},
+    {'id': 'angry', 'emoji': '😤', 'label': 'Stresli'},
+  ];
 
   @override
   void initState() {
     super.initState();
     _loadTasks();
 
-    // Canlı görev güncelleme dinleyicisi
     SupabaseService.tasksUpdateController.stream.listen((_) {
       if (mounted) _loadTasks();
     });
@@ -47,16 +60,30 @@ class _MissionsTabState extends State<MissionsTab> {
     }
   }
 
+  Future<void> _handleMoodSelect(String moodId, String emoji, String label) async {
+    setState(() => _currentMood = moodId);
+    final ok = await SupabaseService.updateStudentMood(widget.student.id, moodId);
+    if (ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$emoji Duygu durumun "$label" olarak güncellendi! Anne & Babana iletildi.'),
+          backgroundColor: KidsTheme.emerald,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      );
+    }
+  }
+
   Future<void> _handleCompleteTask(TaskModel task) async {
     if (task.requiresPhoto) {
-      // Fotoğraf Kanıtı Al
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
         imageQuality: 75,
       );
       if (photo == null) return;
 
-      // Supabase Storage'a yükle
       final bytes = await photo.readAsBytes();
       final fileName = 'proof_${widget.student.id}_${task.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
 
@@ -68,41 +95,51 @@ class _MissionsTabState extends State<MissionsTab> {
             .from('proofs')
             .getPublicUrl(fileName);
 
-        final ok = await SupabaseService.submitTask(
+        await SupabaseService.submitTask(
           taskId: task.id,
           studentId: widget.student.id,
           familyId: widget.student.familyId,
           photoUrl: publicUrl,
         );
-
-        if (ok && mounted) {
-          _showFeedbackDialog('📸 Fotoğraf yüklendi! Ebeveyn onayına gönderildi.');
-          _loadTasks();
-          widget.onRefreshUser?.call();
-        }
       } catch (e) {
-        print('[Storage] Fotoğraf yükleme hatası: $e');
-        // Offline / fallback submit
+        // Fallback directly
         await SupabaseService.submitTask(
           taskId: task.id,
           studentId: widget.student.id,
           familyId: widget.student.familyId,
         );
-        _loadTasks();
-        widget.onRefreshUser?.call();
       }
     } else {
-      // Doğrudan tamamla
-      final ok = await SupabaseService.submitTask(
+      // Optimistik UI: görevi hemen pending durumuna al
+      setState(() {
+        final idx = _tasks.indexWhere((t) => t.id == task.id);
+        if (idx != -1) {
+          _tasks[idx] = TaskModel(
+            id: task.id,
+            familyId: task.familyId,
+            title: task.title,
+            description: task.description,
+            points: task.points,
+            category: task.category,
+            requiresPhoto: task.requiresPhoto,
+            isFirstComeRace: task.isFirstComeRace,
+            claimedBy: task.claimedBy,
+            submissionStatus: 'pending',
+          );
+        }
+      });
+
+      await SupabaseService.submitTask(
         taskId: task.id,
         studentId: widget.student.id,
         familyId: widget.student.familyId,
       );
-      if (ok && mounted) {
-        _showFeedbackDialog('🌟 Harika! Görevin ebeveyn onayına gönderildi.');
-        _loadTasks();
-        widget.onRefreshUser?.call();
-      }
+    }
+
+    if (mounted) {
+      _showFeedbackDialog('🌟 Harika! Görevin tamamlandı ve veli onayına iletildi.');
+      _loadTasks();
+      widget.onRefreshUser?.call();
     }
   }
 
@@ -133,7 +170,7 @@ class _MissionsTabState extends State<MissionsTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading && _tasks.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(color: KidsTheme.primary),
       );
@@ -144,56 +181,176 @@ class _MissionsTabState extends State<MissionsTab> {
       color: KidsTheme.primary,
       backgroundColor: KidsTheme.surface,
       child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          // Kategori Seçici Filtre Barı
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildFilterChip('all', '🌟 Tümü'),
-                _buildFilterChip('study', '📚 Ders & Ödev'),
-                _buildFilterChip('routine_evening', '🎒 Rutin & Çanta'),
-                _buildFilterChip('health_sport', '🏃 Spor & Sağlık'),
-                _buildFilterChip('kindness_help', '🤝 Ev & Nezaket'),
-              ],
-            ),
-          ),
+          // 1. DUYGU DURUMU SEÇİCİ (MOOD SELECTOR)
+          _buildMoodSelector(),
+          const SizedBox(height: 12),
+
+          // 2. HIZLI ERİŞİM MERKEZİ (MODALLAR: İTİRAZ, YOLDAŞ, MERHAMET, ALBÜM, RÖPORTAJ, GÖREV ÖNER)
+          _buildQuickActionHub(),
           const SizedBox(height: 16),
 
-          // İlk Kapar Yarış Görevleri (Varsa En Üste Sabitlenir)
+          // 3. KATEGORİ FİLTRE BARIK
+          _buildCategoryFilters(),
+          const SizedBox(height: 14),
+
+          // 4. İLK KAPAR GÖREV YARIŞLARI
           ..._tasks.where((t) => t.isFirstComeRace && t.claimedBy == null).map(
                 (raceTask) => _buildRaceCard(raceTask),
               ),
 
-          // Görev Listesi
+          // 5. GÖREV LİSTESİ
           if (_filteredTasks.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: KidsTheme.cardDecoration(),
-              child: Column(
-                children: [
-                  const Text('🎉', style: TextStyle(fontSize: 48)),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Bugünün Tüm Görevleri Bitti!',
-                    style: TextStyle(
-                      color: KidsTheme.textWhite,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Dinlenebilir veya serbest oyun zamanının tadını çıkarabilirsin.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: KidsTheme.textMuted, fontSize: 13),
-                  ),
-                ],
-              ),
-            )
+            _buildEmptyState()
           else
             ..._filteredTasks.map((task) => _buildTaskCard(task)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMoodSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: KidsTheme.surfaceElevated,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        children: [
+          const Text(
+            'Bugün Nasıl Hissediyorsun?',
+            style: TextStyle(
+              color: KidsTheme.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const Spacer(),
+          ..._moods.map((m) {
+            final isSelected = _currentMood == m['id'];
+            return GestureDetector(
+              onTap: () => _handleMoodSelect(m['id']!, m['emoji']!, m['label']!),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(left: 6),
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: isSelected ? KidsTheme.primary.withOpacity(0.3) : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? KidsTheme.goldLight : Colors.transparent,
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  m['emoji']!,
+                  style: TextStyle(fontSize: isSelected ? 22 : 18),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionHub() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildActionPill(
+            icon: '💡',
+            label: 'Görev Öner',
+            color: KidsTheme.primary,
+            onTap: () => ProposeTaskModal.show(context, widget.student, onSuccess: _loadTasks),
+          ),
+          _buildActionPill(
+            icon: '🐉',
+            label: 'Yoldaşım',
+            color: const Color(0xFFF59E0B),
+            onTap: () => CompanionModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '⚖️',
+            label: 'Adalet Divanı',
+            color: KidsTheme.rose,
+            onTap: () => AppealModal.show(context, widget.student, onSuccess: widget.onRefreshUser),
+          ),
+          _buildActionPill(
+            icon: '🕊️',
+            label: 'Merhamet (+5 Dk)',
+            color: KidsTheme.cyan,
+            onTap: () => GracePeriodModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '🏆',
+            label: 'Kupalarım',
+            color: KidsTheme.gold,
+            onTap: () => SuccessAlbumModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '🎙️',
+            label: 'Pazar Röportajı',
+            color: KidsTheme.purpleAccent,
+            onTap: () => WeeklyInterviewModal.show(context, widget.student, onSuccess: widget.onRefreshUser),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionPill({
+    required String icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.35)),
+          ),
+          child: Row(
+            children: [
+              Text(icon, style: const TextStyle(fontSize: 14)),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilters() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildFilterChip('all', '🌟 Tümü'),
+          _buildFilterChip('study', '📚 Ders & Ödev'),
+          _buildFilterChip('routine_evening', '🎒 Rutin & Çanta'),
+          _buildFilterChip('health_sport', '🏃 Spor & Sağlık'),
+          _buildFilterChip('kindness_help', '🤝 Ev & Nezaket'),
+          _buildFilterChip('flash_quest', '⚡ Flaş Görevler'),
         ],
       ),
     );
@@ -325,7 +482,7 @@ class _MissionsTabState extends State<MissionsTab> {
                 children: [
                   Icon(Icons.flash_on_rounded, size: 20),
                   SizedBox(width: 6),
-                  Text('Görevi İlk Ben Kapıyorum!', style: TextStyle(fontWeight: FontWeight.w900)),
+                  Text('Görevi İlk Ben Kapıyorum! ⚡', style: TextStyle(fontWeight: FontWeight.w900)),
                 ],
               ),
             ),
@@ -342,11 +499,11 @@ class _MissionsTabState extends State<MissionsTab> {
 
     if (task.isCompleted) {
       statusColor = KidsTheme.emerald;
-      statusLabel = 'Onaylandı';
+      statusLabel = 'Onaylandı ✅';
       statusIcon = Icons.check_circle_rounded;
     } else if (task.isPending) {
       statusColor = KidsTheme.gold;
-      statusLabel = 'Veli Onayı Bekliyor';
+      statusLabel = 'Veli Onayı Bekliyor ⏳';
       statusIcon = Icons.hourglass_top_rounded;
     }
 
@@ -405,7 +562,7 @@ class _MissionsTabState extends State<MissionsTab> {
                   const SizedBox(height: 4),
                   Text(
                     task.description,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: KidsTheme.textMuted,
                       fontSize: 12,
                     ),
@@ -418,7 +575,7 @@ class _MissionsTabState extends State<MissionsTab> {
                   GestureDetector(
                     onTap: () => _handleCompleteTask(task),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
                         gradient: KidsTheme.goldGradient,
                         borderRadius: BorderRadius.circular(14),
@@ -442,7 +599,7 @@ class _MissionsTabState extends State<MissionsTab> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            task.requiresPhoto ? 'Fotoğraf Çek & Bitir' : 'Görevi Yaptım',
+                            task.requiresPhoto ? 'Fotoğraf Çek & Bitir' : 'Görevi Yaptım ✅',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
@@ -455,10 +612,11 @@ class _MissionsTabState extends State<MissionsTab> {
                   )
                 else
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: statusColor.withOpacity(0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -478,6 +636,33 @@ class _MissionsTabState extends State<MissionsTab> {
                   ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: KidsTheme.cardDecoration(),
+      child: const Column(
+        children: [
+          Text('🎉', style: TextStyle(fontSize: 48)),
+          SizedBox(height: 12),
+          Text(
+            'Bugünün Tüm Görevleri Bitti!',
+            style: TextStyle(
+              color: KidsTheme.textWhite,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Dinlenebilir veya serbest oyun zamanının tadını çıkarabilirsin.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: KidsTheme.textMuted, fontSize: 13),
           ),
         ],
       ),

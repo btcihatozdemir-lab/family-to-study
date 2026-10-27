@@ -7,13 +7,19 @@ class ScheduleLesson {
     required this.name,
   });
 
-  factory ScheduleLesson.fromJson(Map<String, dynamic> json) {
-    return ScheduleLesson(
-      period: json['period'] is int
-          ? json['period']
-          : int.tryParse(json['period']?.toString() ?? '1') ?? 1,
-      name: json['name']?.toString() ?? '',
-    );
+  factory ScheduleLesson.fromJson(dynamic json, int defaultPeriod) {
+    if (json is String) {
+      return ScheduleLesson(period: defaultPeriod, name: json);
+    }
+    if (json is Map) {
+      return ScheduleLesson(
+        period: json['period'] is int
+            ? json['period']
+            : int.tryParse(json['period']?.toString() ?? '$defaultPeriod') ?? defaultPeriod,
+        name: json['name']?.toString() ?? '',
+      );
+    }
+    return ScheduleLesson(period: defaultPeriod, name: json?.toString() ?? '');
   }
 }
 
@@ -25,6 +31,8 @@ class DayScheduleModel {
   final List<ScheduleLesson> lessons;
   final List<String> extraMaterials;
   final String reminderNotes;
+  final bool hasPeClass;
+  final bool hasArtClass;
 
   DayScheduleModel({
     required this.id,
@@ -34,16 +42,36 @@ class DayScheduleModel {
     required this.lessons,
     required this.extraMaterials,
     this.reminderNotes = '',
+    this.hasPeClass = false,
+    this.hasArtClass = false,
   });
 
   factory DayScheduleModel.fromJson(Map<String, dynamic> json) {
     final rawLessons = json['lessons'] as List<dynamic>? ?? [];
-    final parsedLessons = rawLessons
-        .map((l) => ScheduleLesson.fromJson(Map<String, dynamic>.from(l as Map)))
-        .toList();
+    final List<ScheduleLesson> parsedLessons = [];
+    for (int i = 0; i < rawLessons.length; i++) {
+      parsedLessons.add(ScheduleLesson.fromJson(rawLessons[i], i + 1));
+    }
 
     final rawMaterials = json['extra_materials'] as List<dynamic>? ?? [];
-    final parsedMaterials = rawMaterials.map((m) => m.toString()).toList();
+    final rawCustomItems = json['custom_items_to_pack'] as List<dynamic>? ?? [];
+    final Set<String> mergedMaterials = {};
+    for (final m in rawMaterials) {
+      if (m != null && m.toString().isNotEmpty) mergedMaterials.add(m.toString());
+    }
+    for (final m in rawCustomItems) {
+      if (m != null && m.toString().isNotEmpty) mergedMaterials.add(m.toString());
+    }
+
+    // Sanat / Beden eğitimi dersleri varsa otomatik malzeme ekle
+    final bool pe = json['has_pe_class'] == true;
+    final bool art = json['has_art_class'] == true;
+    if (pe && !mergedMaterials.any((m) => m.toLowerCase().contains('spor') || m.toLowerCase().contains('eşofman'))) {
+      mergedMaterials.add('👟 Beden Eğitimi: Spor Ayakkabısı & Eşofman');
+    }
+    if (art && !mergedMaterials.any((m) => m.toLowerCase().contains('resim') || m.toLowerCase().contains('boya'))) {
+      mergedMaterials.add('🎨 Görsel Sanatlar: Resim Defteri & Boya Kalemleri');
+    }
 
     return DayScheduleModel(
       id: json['id']?.toString() ?? '',
@@ -53,8 +81,10 @@ class DayScheduleModel {
           ? json['day_of_week']
           : int.tryParse(json['day_of_week']?.toString() ?? '1') ?? 1,
       lessons: parsedLessons,
-      extraMaterials: parsedMaterials,
-      reminderNotes: json['reminder_notes']?.toString() ?? '',
+      extraMaterials: mergedMaterials.toList(),
+      reminderNotes: json['reminder_note']?.toString() ?? json['reminder_notes']?.toString() ?? '',
+      hasPeClass: pe,
+      hasArtClass: art,
     );
   }
 

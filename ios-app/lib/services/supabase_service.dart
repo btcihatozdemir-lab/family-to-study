@@ -343,19 +343,19 @@ class SupabaseService {
   /// Öğrencinin aktif görevlerini ve teslimat durumlarını çek
   static Future<List<TaskModel>> fetchTasks(String familyId, String studentId) async {
     try {
-      // 1. Ailenin veya bu öğrencinin aktif görevleri
+      // 1. Ailenin veya bu öğrencinin aktif görevleri (assigned_to sütunu)
       final tasksRes = await client
           .from('tasks')
           .select('*')
           .eq('family_id', familyId)
           .eq('is_active', true)
-          .or('user_id.is.null,user_id.eq.$studentId');
+          .or('assigned_to.is.null,assigned_to.eq.$studentId,assigned_to.eq.both,assigned_to.eq.all');
 
-      // 2. Bugün bu öğrencinin yaptığı teslimatlar
+      // 2. Bugün bu öğrencinin yaptığı teslimatlar (user_id sütunu)
       final subsRes = await client
           .from('task_submissions')
           .select('task_id, status')
-          .eq('student_id', studentId);
+          .eq('user_id', studentId);
 
       final Map<String, String> statusMap = {};
       for (final sub in subsRes) {
@@ -375,7 +375,24 @@ class SupabaseService {
     }
   }
 
-  /// Görevi Tamamla / Veli Onayına Gönder
+  /// Öğrencinin Kardeşlerini Listele (Kardeşe Puan Gönderme İçin)
+  static Future<List<UserModel>> fetchSiblings(String familyId, String currentStudentId) async {
+    try {
+      final res = await client
+          .from('users')
+          .select('*')
+          .eq('family_id', familyId)
+          .eq('role', 'child')
+          .neq('id', currentStudentId);
+
+      return (res as List).map((u) => UserModel.fromJson(u)).toList();
+    } catch (e) {
+      print('[fetchSiblings] Hata: $e');
+      return [];
+    }
+  }
+
+  /// Görevi Tamamla / Veli Onayına Gönder (user_id sütununa yazar)
   static Future<bool> submitTask({
     required String taskId,
     required String studentId,
@@ -386,9 +403,9 @@ class SupabaseService {
       await client.from('task_submissions').insert({
         'family_id': familyId,
         'task_id': taskId,
-        'student_id': studentId,
+        'user_id': studentId,
         'status': 'pending',
-        'submission_method': photoUrl != null ? 'photo_uploaded' : 'called_parent_for_check',
+        'submission_method': photoUrl != null ? 'photo_uploaded' : 'just_marked_done',
         'photo_urls': photoUrl != null ? [photoUrl] : [],
         'created_at': DateTime.now().toUtc().toIso8601String(),
       });
@@ -402,9 +419,12 @@ class SupabaseService {
   /// İlk Kapar Görev Yarışını Kap
   static Future<bool> claimRaceTask(String taskId, String studentId) async {
     try {
-      final res = await client
+      await client
           .from('tasks')
-          .update({'claimed_by': studentId})
+          .update({
+            'claimed_by': studentId,
+            'claimed_at': DateTime.now().toUtc().toIso8601String(),
+          })
           .eq('id', taskId)
           .isFilter('claimed_by', null);
       return true;
@@ -412,6 +432,193 @@ class SupabaseService {
       print('[claimRaceTask] Hata: $e');
       return false;
     }
+  }
+
+  /// Tersine Görev Teklifi Gönder (Çocuğun ebeveyne görev önermesi)
+  static Future<bool> proposeTask({
+    required String familyId,
+    required String studentId,
+    required String title,
+    required String description,
+    required int points,
+  }) async {
+    try {
+      await client.from('tasks').insert({
+        'family_id': familyId,
+        'created_by': studentId,
+        'assigned_to': studentId,
+        'title': title.trim(),
+        'description': description.trim(),
+        'points': points,
+        'category': 'chore',
+        'proposal_status': 'pending_parent_approval',
+        'is_active': false,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      return true;
+    } catch (e) {
+      print('[proposeTask] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Öğrencinin Duygu Durumunu Güncelle (Mutlu, Enerjik, Yorgun, Stresli)
+  static Future<bool> updateStudentMood(String studentId, String mood) async {
+    try {
+      await client.from('users').update({
+        'current_mood': mood,
+      }).eq('id', studentId);
+      return true;
+    } catch (e) {
+      print('[updateStudentMood] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Şans Çarkını Çevir ve Puan Kazan
+  static Future<int?> spinLuckyWheel(String studentId) async {
+    try {
+      final user = await fetchStudentProfile(studentId);
+      if (user == null || user.wheelSpinsAvailable <= 0) return null;
+
+      // 10 ile 75 arası şans puanı
+      final List<int> prizePool = [15, 20, 25, 30, 40, 50, 75];
+      prizePool.shuffle();
+      final prize = prizePool.first;
+
+      await client.from('users').update({
+        'points_balance': user.pointsBalance + prize,
+        'wheel_spins_available': (user.wheelSpinsAvailable - 1).clamp(0, 99),
+      }).eq('id', studentId);
+
+      return prize;
+    } catch (e) {
+      print('[spinLuckyWheel] Hata: $e');
+      return null;
+    }
+  }
+
+  /// Kardeşler Arası Puan Transferi / Altın Kalp Hediyesi
+  static Future<bool> transferPointsToSibling({
+    required String familyId,
+    required String senderId,
+    required String receiverId,
+    required int amount,
+    required String message,
+  }) async {
+    try {
+      final sender = await fetchStudentProfile(senderId);
+      final receiver = await fetchStudentProfile(receiverId);
+      if (sender == null || receiver == null || sender.pointsBalance < amount) {
+        return false;
+      }
+
+      // Gönderenden düş
+      await client.from('users').update({
+        'points_balance': sender.pointsBalance - amount,
+      }).eq('id', senderId);
+
+      // Alıcıya ekle
+      await client.from('users').update({
+        'points_balance': receiver.pointsBalance + amount,
+      }).eq('id', receiverId);
+
+      // Transfer kaydı at
+      await client.from('point_transfers').insert({
+        'family_id': familyId,
+        'sender_child_id': senderId,
+        'receiver_child_id': receiverId,
+        'amount': amount,
+        'message': message,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      });
+
+      return true;
+    } catch (e) {
+      print('[transferPointsToSibling] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Adalet Divanı: Ceza veya Göreve İtiraz Et (Hakem Heyeti)
+  static Future<bool> submitAppeal({
+    required String familyId,
+    String? studentId,
+    String? userId,
+    String title = '',
+    String? reason,
+    String? reasonText,
+  }) async {
+    final targetUserId = studentId ?? userId ?? SessionManager.userId;
+    final text = reason ?? reasonText ?? title;
+    final fullReason = title.isNotEmpty && text != title ? '[$title] $text' : text;
+
+    try {
+      await client.from('appeals').insert({
+        'family_id': familyId,
+        'user_id': targetUserId,
+        'reason_text': fullReason.trim(),
+        'status': 'pending',
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      return true;
+    } catch (e) {
+      print('[submitAppeal] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Pazar Röportajı & Anı Kapsülü Kaydet (Haftalık röportaj + 15 Hatıra Puanı)
+  static Future<bool> saveWeeklyInterview({
+    required String studentId,
+    required String familyId,
+    required String questionText,
+    String? audioUrl,
+    String? answerNote,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final monday = now.subtract(Duration(days: now.weekday - 1));
+      final weekStartDate =
+          "${monday.year.toString().padLeft(4, '0')}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}";
+
+      await client.from('weekly_interviews').insert({
+        'family_id': familyId,
+        'user_id': studentId,
+        'week_start_date': weekStartDate,
+        'question_text': questionText,
+        'audio_url': audioUrl,
+        'answer_note': answerNote ?? '🎙️ Sesli zaman kapsülü kaydı eklendi.',
+        'created_at': now.toUtc().toIso8601String(),
+      });
+
+      final user = await fetchStudentProfile(studentId);
+      if (user != null) {
+        await client.from('users').update({
+          'points_balance': user.pointsBalance + 15,
+        }).eq('id', studentId);
+      }
+
+      return true;
+    } catch (e) {
+      print('[saveWeeklyInterview] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Aile Ayarlarını Çek (Ortak Kasa Hedefi, Happy Hour, vb.)
+  static Future<Map<String, dynamic>?> fetchFamilySettings(String familyId) async {
+    try {
+      final res = await client
+          .from('family_settings')
+          .select('*')
+          .eq('family_id', familyId)
+          .limit(1);
+      if (res.isNotEmpty) return res.first;
+    } catch (e) {
+      print('[fetchFamilySettings] Hata: $e');
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -481,15 +688,14 @@ class SupabaseService {
     return transferToPiggyBank(userId, amount);
   }
 
-  /// Ödül Marketindeki Ürünleri Çek
+  /// Ödül Marketindeki Ürünleri Çek (cost_points sütunu)
   static Future<List<RewardModel>> fetchRewards(String familyId) async {
     try {
       final res = await client
           .from('rewards')
           .select('*')
           .eq('family_id', familyId)
-          .eq('is_available', true)
-          .order('points_cost', ascending: true);
+          .order('cost_points', ascending: true);
 
       return res.map((r) => RewardModel.fromJson(r)).toList();
     } catch (e) {
@@ -520,12 +726,11 @@ class SupabaseService {
         'points_balance': user.pointsBalance - finalCost,
       }).eq('id', studentId);
 
-      // Talep oluştur
+      // Talep oluştur (user_id sütunu)
       await client.from('reward_redemptions').insert({
         'family_id': targetFamilyId,
         'user_id': studentId,
         'reward_id': rewardId,
-        'points_spent': finalCost,
         'status': 'pending',
         'created_at': DateTime.now().toUtc().toIso8601String(),
       });
@@ -589,33 +794,6 @@ class SupabaseService {
     }
   }
 
-  /// Adalet Divanına (Hakem Heyetine) İtiraz Gönder
-  static Future<bool> submitAppeal({
-    required String familyId,
-    required String studentId,
-    String studentName = '',
-    String title = '',
-    String? reason,
-    String? reasonText,
-  }) async {
-    try {
-      final text = reason ?? reasonText ?? title;
-      final fullReason = title.isNotEmpty && text != title ? '[$title] $text' : text;
-
-      await client.from('appeals').insert({
-        'family_id': familyId,
-        'user_id': studentId,
-        'student_name': studentName.isNotEmpty ? studentName : SessionManager.userName,
-        'reason_text': fullReason,
-        'status': 'pending',
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-      });
-      return true;
-    } catch (e) {
-      print('[submitAppeal] Hata: $e');
-      return false;
-    }
-  }
 
   /// Sabah Uyanma Alarmını Kapat ve Durumu Güncelle
   static Future<bool> dismissWakeUpAlarm(String studentId) async {

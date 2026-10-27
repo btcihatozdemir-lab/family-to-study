@@ -25,10 +25,12 @@ class RewardModel {
       familyId: json['family_id']?.toString() ?? '',
       title: json['title']?.toString() ?? 'Ödül',
       description: json['description']?.toString() ?? '',
-      pointsCost: json['points_cost'] is int
-          ? json['points_cost']
-          : int.tryParse(json['points_cost']?.toString() ?? '50') ?? 50,
-      iconName: json['icon_name']?.toString() ?? 'Gift',
+      pointsCost: json['cost_points'] is int
+          ? json['cost_points']
+          : (json['points_cost'] is int
+              ? json['points_cost']
+              : int.tryParse(json['cost_points']?.toString() ?? json['points_cost']?.toString() ?? '50') ?? 50),
+      iconName: json['icon']?.toString() ?? json['icon_name']?.toString() ?? 'Gift',
       tier: json['tier']?.toString() ?? 'bronze',
       isAvailable: json['is_available'] != false,
     );
