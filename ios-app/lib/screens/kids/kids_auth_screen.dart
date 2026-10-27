@@ -753,6 +753,52 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
           ),
           const SizedBox(height: 14),
 
+          // Google ile Ebeveyn Girişi Butonu
+          ElevatedButton(
+            onPressed: () async {
+              setState(() {
+                _isFamilyLoading = true;
+                _familyError = null;
+              });
+              final ok = await SupabaseService.signInWithGoogle();
+              setState(() => _isFamilyLoading = false);
+              if (!ok && mounted) {
+                setState(() => _familyError = 'Google ile giriş başlatılamadı veya iptal edildi.');
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF0F172A),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 4,
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('🌐', style: TextStyle(fontSize: 18)),
+                SizedBox(width: 10),
+                Text(
+                  'Google ile Ebeveyn Girişi Yap',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F172A)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          Row(
+            children: [
+              Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text('veya Kayıtlı Profil Seç', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11)),
+              ),
+              Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
+            ],
+          ),
+          const SizedBox(height: 14),
+
           if (parents.isEmpty && _isFamilyLoading)
             const Center(
               child: Padding(

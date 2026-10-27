@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'session_manager.dart';
 import 'notification_service.dart';
@@ -333,6 +334,19 @@ class SupabaseService {
       print('[loginWithMagicToken] Hata: $e');
     }
     return null;
+  }
+
+  /// Ebeveyn Google ile Giriş Yap (OAuth)
+  static Future<bool> signInWithGoogle() async {
+    try {
+      return await client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: kIsWeb ? null : 'familytostudy://login-callback',
+      );
+    } catch (e) {
+      print('[signInWithGoogle] Hata: $e');
+      return false;
+    }
   }
 
   /// Öğrenci Profilini Çek
