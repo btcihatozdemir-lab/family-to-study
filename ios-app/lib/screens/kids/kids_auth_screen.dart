@@ -402,7 +402,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                       children: [
                         CircleAvatar(
                           radius: 22,
-                          backgroundColor: isChild ? KidsTheme.accentGreen.withOpacity(0.2) : Colors.purple.withOpacity(0.2),
+                          backgroundColor: isChild ? KidsTheme.emerald.withOpacity(0.2) : Colors.purple.withOpacity(0.2),
                           child: Text(
                             isChild ? '🧒' : '👨‍👩‍👧',
                             style: const TextStyle(fontSize: 22),
@@ -422,7 +422,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                         Text(
                           isChild ? 'Öğrenci' : 'Ebeveyn',
                           style: TextStyle(
-                            color: isChild ? KidsTheme.accentGreen : KidsTheme.primaryLight,
+                            color: isChild ? KidsTheme.emerald : KidsTheme.primaryLight,
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                           ),
@@ -484,7 +484,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                     ElevatedButton(
                       onPressed: _isFamilyLoading ? null : _handleMemberPinLogin,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: KidsTheme.accentGreen,
+                        backgroundColor: KidsTheme.emerald,
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
