@@ -65,6 +65,26 @@ class SessionManager {
     pwaUrl = prefs.getString(_keyPwaUrl) ?? 'https://btcihatozdemir-lab.github.io/family-to-study/';
   }
 
+  static Future<void> saveUser({
+    required String newUserId,
+    required String newFamilyId,
+    required String newRole,
+    required String newName,
+    String? newRoleTitle,
+    String? newGender,
+    bool? newIsPrimaryAdmin,
+    String? newToken,
+  }) => updateSession(
+    newUserId: newUserId,
+    newFamilyId: newFamilyId,
+    newRole: newRole,
+    newName: newName,
+    newRoleTitle: newRoleTitle,
+    newGender: newGender,
+    newIsPrimaryAdmin: newIsPrimaryAdmin,
+    newToken: newToken,
+  );
+
   static Future<void> updateSession({
     required String newUserId,
     required String newFamilyId,

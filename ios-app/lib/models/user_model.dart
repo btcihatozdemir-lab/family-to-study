@@ -77,6 +77,7 @@ class UserModel {
     );
   }
 
+  int get points => pointsBalance;
   int get totalXp => pointsBalance + piggyBankBalance;
   int get level => (totalXp ~/ 100) + 1;
   double get levelProgress => (totalXp % 100) / 100.0;

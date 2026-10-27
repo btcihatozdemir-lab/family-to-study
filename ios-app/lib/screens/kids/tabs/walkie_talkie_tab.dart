@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../main.dart';
 import '../../../models/user_model.dart';
@@ -558,7 +559,13 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
           // Yatay Kaydırılabilir Hazır Mesajlar Listesi
           Expanded(
             child: ScrollConfiguration(
-              behavior: const AppScrollBehavior(),
+              behavior: ScrollConfiguration.of(context).copyWith(
+                dragDevices: {
+                  PointerDeviceKind.touch,
+                  PointerDeviceKind.mouse,
+                  PointerDeviceKind.trackpad,
+                },
+              ),
               child: ListView.builder(
                 controller: _quickPhrasesScrollCtrl,
                 scrollDirection: Axis.horizontal,
