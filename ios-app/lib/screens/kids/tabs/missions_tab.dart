@@ -110,11 +110,11 @@ class _MissionsTabState extends State<MissionsTab> {
         );
       }
     } else {
-      // Optimistik UI: görevi hemen pending durumuna al
+      // Doğrudan tamamlanan görevler: hemen onaylanır ve puan kazanılır!
       setState(() {
         final idx = _tasks.indexWhere((t) => t.id == task.id);
         if (idx != -1) {
-          _tasks[idx] = task.copyWith(status: 'pending');
+          _tasks[idx] = task.copyWith(status: 'approved');
         }
       });
 
@@ -122,11 +122,13 @@ class _MissionsTabState extends State<MissionsTab> {
         taskId: task.id,
         studentId: widget.student.id,
         familyId: widget.student.familyId,
+        points: task.points,
+        autoApprove: true,
       );
     }
 
     if (mounted) {
-      _showFeedbackDialog('🌟 Harika! Görevin tamamlandı ve veli onayına iletildi.');
+      _showFeedbackDialog('🌟 Harika! Görevin tamamlandı ve +${task.points} Puan kazandın! 🎉');
       _loadTasks();
       widget.onRefreshUser?.call();
     }

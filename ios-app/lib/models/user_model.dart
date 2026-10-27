@@ -13,6 +13,7 @@ class UserModel {
   final String avatarBg;
   final String avatarEmoji;
   final int wheelSpinsAvailable;
+  final int streakDays;
 
   UserModel({
     required this.id,
@@ -29,6 +30,7 @@ class UserModel {
     this.avatarBg = 'from-indigo-500 to-purple-600',
     this.avatarEmoji = '🦁',
     this.wheelSpinsAvailable = 1,
+    this.streakDays = 0,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -56,6 +58,9 @@ class UserModel {
       wheelSpinsAvailable: json['wheel_spins_available'] is int
           ? json['wheel_spins_available']
           : int.tryParse(json['wheel_spins_available']?.toString() ?? '1') ?? 1,
+      streakDays: json['streak_days'] is int
+          ? json['streak_days']
+          : int.tryParse(json['streak_days']?.toString() ?? '0') ?? 0,
     );
   }
 

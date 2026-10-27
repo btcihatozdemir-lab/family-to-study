@@ -6,8 +6,10 @@ import '../../services/session_manager.dart';
 import '../../theme/kids_theme.dart';
 import 'tabs/missions_tab.dart';
 import 'tabs/schedule_bag_tab.dart';
-import 'tabs/treasure_vault_tab.dart';
 import 'tabs/walkie_talkie_tab.dart';
+import 'tabs/treasure_vault_tab.dart';
+import 'tabs/profile_tab.dart';
+import '../../widgets/convex_bottom_bar.dart';
 import 'overlays/focus_lock_overlay.dart';
 import 'overlays/morning_alarm_overlay.dart';
 import 'kids_auth_screen.dart';
@@ -104,15 +106,16 @@ class _KidsHomeScreenState extends State<KidsHomeScreen> {
               // Top Bar
               _buildTopBar(),
 
-              // Selected Tab View
+              // Selected Tab View (5 Sekme: Ortada Telsiz, Sonda Profil)
               Expanded(
                 child: IndexedStack(
                   index: _currentTabIndex,
                   children: [
                     MissionsTab(student: _student, onRefreshUser: _refreshStudent),
                     ScheduleBagTab(student: _student),
-                    TreasureVaultTab(student: _student, onRefreshUser: _refreshStudent),
                     WalkieTalkieTab(student: _student, onRefreshUser: _refreshStudent),
+                    TreasureVaultTab(student: _student, onRefreshUser: _refreshStudent),
+                    ProfileTab(student: _student, onRefreshUser: _refreshStudent),
                   ],
                 ),
               ),
@@ -134,7 +137,12 @@ class _KidsHomeScreenState extends State<KidsHomeScreen> {
             ),
         ],
       ),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: ConvexBottomBar(
+        selectedIndex: _currentTabIndex,
+        onTabSelected: (index) {
+          setState(() => _currentTabIndex = index);
+        },
+      ),
     );
   }
 
@@ -368,66 +376,5 @@ class _KidsHomeScreenState extends State<KidsHomeScreen> {
     );
   }
 
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: KidsTheme.surfaceElevated,
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.06))),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, '📋', 'Görevler'),
-              _buildNavItem(1, '🎒', 'Ders & Çanta'),
-              _buildNavItem(2, '🏺', 'Kasa & Pazar'),
-              _buildNavItem(3, '📻', 'Telsiz'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildNavItem(int index, String emoji, String label) {
-    final bool isSelected = _currentTabIndex == index;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        setState(() => _currentTabIndex = index);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? KidsTheme.indigoPrimary.withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              emoji,
-              style: TextStyle(
-                fontSize: isSelected ? 22 : 19,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : KidsTheme.textMuted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

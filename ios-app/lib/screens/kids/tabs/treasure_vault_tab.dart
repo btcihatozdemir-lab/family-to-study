@@ -24,6 +24,7 @@ class _TreasureVaultTabState extends State<TreasureVaultTab> with SingleTickerPr
   bool _isLoading = false;
   List<RewardModel> _rewards = [];
   String _selectedTier = 'all';
+  int _todayCompletedTasks = 0;
 
   // Şans Çarkı Animasyon State
   late AnimationController _wheelAnimCtrl;
@@ -50,9 +51,11 @@ class _TreasureVaultTabState extends State<TreasureVaultTab> with SingleTickerPr
   Future<void> _loadRewards() async {
     setState(() => _isLoading = true);
     final list = await SupabaseService.fetchRewards(widget.student.familyId);
+    final count = await SupabaseService.fetchTodayCompletedTasksCount(widget.student.id);
     if (mounted) {
       setState(() {
         _rewards = list;
+        _todayCompletedTasks = count;
         _isLoading = false;
       });
     }
@@ -635,19 +638,42 @@ class _TreasureVaultTabState extends State<TreasureVaultTab> with SingleTickerPr
   }
 
   Widget _buildLuckyWheelCard() {
+    final bool hasTasksToday = _todayCompletedTasks > 0;
+    final bool hasSpinAvailable = widget.student.wheelSpinsAvailable > 0;
+    final bool canSpin = hasTasksToday && hasSpinAvailable;
+
+    String descText = 'Her gün 1 defa çarkı çevirerek 20-75 ekstra puan kazan!';
+    String btnText = 'Çevir 🎡';
+    Color btnColor = KidsTheme.gold;
+    Color btnTextColor = Colors.black;
+
+    if (!hasTasksToday) {
+      descText = '🔒 Günlük Kilit: Çarkı açabilmek için bugün en az 1 görev tamamlamalısın!';
+      btnText = 'Görev Yap 🔒';
+      btnColor = Colors.white12;
+      btnTextColor = Colors.white38;
+    } else if (!hasSpinAvailable) {
+      descText = '✅ Günlük Hakkın Bitti: Bugünün çarkını çevirdin. Yarın yeni hakkın açılacak!';
+      btnText = 'Yarın Gel 🌙';
+      btnColor = Colors.white12;
+      btnTextColor = Colors.white38;
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF312E81),
-            const Color(0xFF1E1B4B),
+            canSpin ? const Color(0xFF312E81) : const Color(0xFF1E293B),
+            canSpin ? const Color(0xFF1E1B4B) : const Color(0xFF0F172A),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: KidsTheme.primaryLight.withOpacity(0.4)),
+        border: Border.all(
+          color: canSpin ? KidsTheme.primaryLight.withOpacity(0.5) : Colors.white12,
+        ),
       ),
       child: Row(
         children: [
@@ -658,12 +684,12 @@ class _TreasureVaultTabState extends State<TreasureVaultTab> with SingleTickerPr
               height: 58,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [KidsTheme.goldLight, Colors.deepOrange],
-                ),
-                boxShadow: [
-                  BoxShadow(color: KidsTheme.gold.withOpacity(0.4), blurRadius: 10),
-                ],
+                gradient: canSpin
+                    ? const RadialGradient(colors: [KidsTheme.goldLight, Colors.deepOrange])
+                    : const RadialGradient(colors: [Colors.white24, Colors.white10]),
+                boxShadow: canSpin
+                    ? [BoxShadow(color: KidsTheme.gold.withOpacity(0.4), blurRadius: 10)]
+                    : null,
               ),
               child: const Center(
                 child: Text('🎡', style: TextStyle(fontSize: 30)),
@@ -675,33 +701,46 @@ class _TreasureVaultTabState extends State<TreasureVaultTab> with SingleTickerPr
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Günün Şans Çarkı',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
-                  ),
+                Row(
+                  children: [
+                    const Text(
+                      'Günün Şans Çarkı',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                      ),
+                    ),
+                    if (!canSpin) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.lock_rounded, size: 14, color: Colors.amber.shade200),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
-                  'Her gün çarkı çevirerek 10-100 ekstra puan kazan!',
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
+                  descText,
+                  style: TextStyle(
+                    color: canSpin ? Colors.white.withOpacity(0.8) : KidsTheme.goldLight.withOpacity(0.8),
+                    fontSize: 11,
+                    fontWeight: canSpin ? FontWeight.normal : FontWeight.bold,
+                  ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           ElevatedButton(
-            onPressed: _isSpinning ? null : _handleSpinWheel,
+            onPressed: (_isSpinning || !canSpin) ? null : _handleSpinWheel,
             style: ElevatedButton.styleFrom(
-              backgroundColor: KidsTheme.gold,
-              foregroundColor: Colors.black,
+              backgroundColor: btnColor,
+              foregroundColor: btnTextColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
             child: _isSpinning
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                : const Text('Çevir 🎡', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                : Text(btnText, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
           ),
         ],
       ),

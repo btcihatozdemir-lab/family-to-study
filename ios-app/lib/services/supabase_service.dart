@@ -398,21 +398,56 @@ class SupabaseService {
     required String studentId,
     required String familyId,
     String? photoUrl,
+    int points = 0,
+    bool autoApprove = false,
   }) async {
     try {
+      final status = autoApprove ? 'approved' : 'pending';
       await client.from('task_submissions').insert({
         'family_id': familyId,
         'task_id': taskId,
         'user_id': studentId,
-        'status': 'pending',
+        'status': status,
         'submission_method': photoUrl != null ? 'photo_uploaded' : 'just_marked_done',
         'photo_urls': photoUrl != null ? [photoUrl] : [],
         'created_at': DateTime.now().toUtc().toIso8601String(),
       });
+
+      // Puanı kullanıcıya hemen yükle
+      if (autoApprove && points > 0) {
+        final user = await fetchStudentProfile(studentId);
+        if (user != null) {
+          final newPoints = user.pointsBalance + points;
+          await client.from('users').update({
+            'points_balance': newPoints,
+          }).eq('id', studentId);
+
+          final freshUser = await fetchStudentProfile(studentId);
+          if (freshUser != null) {
+            studentUpdateController.add(freshUser);
+          }
+        }
+      }
+
       return true;
     } catch (e) {
       print('[submitTask] Hata: $e');
       return false;
+    }
+  }
+
+  /// Öğrencinin onaylanan görev sayısını çek (Günün çark kilidi için)
+  static Future<int> fetchTodayCompletedTasksCount(String studentId) async {
+    try {
+      final res = await client
+          .from('task_submissions')
+          .select('id')
+          .eq('user_id', studentId)
+          .eq('status', 'approved');
+      return (res as List).length;
+    } catch (e) {
+      print('[fetchTodayCompletedTasksCount] Hata: $e');
+      return 0;
     }
   }
 
@@ -475,21 +510,27 @@ class SupabaseService {
     }
   }
 
-  /// Şans Çarkını Çevir ve Puan Kazan
+  /// Şans Çarkını Çevir ve Puan Kazan (Günde Sadece 1 Kez)
   static Future<int?> spinLuckyWheel(String studentId) async {
     try {
       final user = await fetchStudentProfile(studentId);
       if (user == null || user.wheelSpinsAvailable <= 0) return null;
 
-      // 10 ile 75 arası şans puanı
-      final List<int> prizePool = [15, 20, 25, 30, 40, 50, 75];
+      // 15 ile 75 arası şans puanı
+      final List<int> prizePool = [20, 25, 30, 40, 50, 75];
       prizePool.shuffle();
       final prize = prizePool.first;
 
       await client.from('users').update({
         'points_balance': user.pointsBalance + prize,
-        'wheel_spins_available': (user.wheelSpinsAvailable - 1).clamp(0, 99),
+        'wheel_spins_available': 0, // Günlük 1 defa
       }).eq('id', studentId);
+
+      // Güncellenmiş profili canlı stream ile yayınla
+      final fresh = await fetchStudentProfile(studentId);
+      if (fresh != null) {
+        studentUpdateController.add(fresh);
+      }
 
       return prize;
     } catch (e) {
