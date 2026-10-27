@@ -749,6 +749,13 @@ class SupabaseService {
   /// Telsiz Mesajlarını Çek
   static Future<List<MessageModel>> fetchMessages(String familyId, [String? userId]) async {
     try {
+      // Aile kullanıcılarının isim haritasını al
+      final usersRes = await client.from('users').select('id, name').eq('family_id', familyId);
+      final Map<String, String> userNames = {};
+      for (final u in usersRes) {
+        userNames[u['id'].toString()] = u['name']?.toString() ?? 'Aile Bireyi';
+      }
+
       var query = client
           .from('messages')
           .select('*')
@@ -759,7 +766,10 @@ class SupabaseService {
       }
 
       final res = await query.order('created_at', ascending: true).limit(50);
-      return res.map((m) => MessageModel.fromJson(m)).toList();
+      return res.map((m) {
+        final sId = m['sender_id']?.toString() ?? '';
+        return MessageModel.fromJson(m, fallbackSenderName: userNames[sId]);
+      }).toList();
     } catch (e) {
       print('[fetchMessages] Hata: $e');
       return [];
@@ -769,21 +779,24 @@ class SupabaseService {
   static Future<List<MessageModel>> getMessages(String familyId) =>
       fetchMessages(familyId, SessionManager.userId);
 
-  /// Telsiz Mesajı Gönder
+  /// Telsiz Mesajı Gönder (Yazılı veya Sesli)
   static Future<bool> sendMessage({
     required String familyId,
     required String senderId,
-    required String senderName,
+    String? senderName,
     String receiverId = 'all',
     required String content,
+    String messageType = 'text',
+    String? audioUrl,
   }) async {
     try {
       await client.from('messages').insert({
         'family_id': familyId,
         'sender_id': senderId,
-        'sender_name': senderName,
         'receiver_id': receiverId,
-        'content': content,
+        'message_type': messageType,
+        'content': content.trim(),
+        'audio_url': audioUrl,
         'is_read': false,
         'created_at': DateTime.now().toUtc().toIso8601String(),
       });

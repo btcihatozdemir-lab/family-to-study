@@ -222,6 +222,57 @@
 
     // Zaman aşımı koruması (maksimum 6 saniye sonra zorla aç)
     setTimeout(hideSplash, 6000);
+
+    // Üstün Kalite Doğal Türkçe Sesli Anons Sistemi (Google Türkçe / Microsoft Natural / Apple Yelda)
+    window.playTurkishSpeech = function(text) {
+      if (!('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+      } catch(e) {}
+
+      function runSpeak() {
+        var utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'tr-TR';
+        utterance.rate = 1.0;  // Doğal akıcı konuşma hızı
+        utterance.pitch = 1.0; // Doğal insan tonu
+        utterance.volume = 1.0;
+
+        var voices = window.speechSynthesis.getVoices();
+        // En kaliteli Türkçe sesleri seç
+        var bestVoice = voices.find(function(v) {
+          var name = (v.name || '').toLowerCase();
+          var lang = (v.lang || '').toLowerCase();
+          return (lang.startsWith('tr') || lang.includes('tr')) && 
+                 (name.includes('google') || name.includes('natural') || name.includes('emel') || name.includes('ahmet') || name.includes('yelda'));
+        }) || voices.find(function(v) {
+          return (v.lang || '').toLowerCase().includes('tr');
+        });
+
+        if (bestVoice) {
+          utterance.voice = bestVoice;
+        }
+
+        window.speechSynthesis.speak(utterance);
+      }
+
+      var vList = window.speechSynthesis.getVoices();
+      if (!vList || vList.length === 0) {
+        window.speechSynthesis.onvoiceschanged = function() {
+          window.speechSynthesis.onvoiceschanged = null;
+          runSpeak();
+        };
+      } else {
+        runSpeak();
+      }
+    };
+
+    window.stopTurkishSpeech = function() {
+      if ('speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch(e) {}
+      }
+    };
   </script>
 
   <script src="flutter_bootstrap.js" async></script>

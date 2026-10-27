@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../models/user_model.dart';
 import '../../../models/message_model.dart';
 import '../../../services/supabase_service.dart';
+import '../../../services/tts_service.dart';
 import '../../../theme/kids_theme.dart';
+import '../modals/appeal_modal.dart';
 
 class WalkieTalkieTab extends StatefulWidget {
   final UserModel student;
@@ -19,25 +21,44 @@ class WalkieTalkieTab extends StatefulWidget {
   State<WalkieTalkieTab> createState() => _WalkieTalkieTabState();
 }
 
-class _WalkieTalkieTabState extends State<WalkieTalkieTab> {
+class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProviderStateMixin {
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<MessageModel> _messages = [];
   bool _isLoading = false;
   StreamSubscription<MessageModel>? _msgSub;
 
+  // Alıcı Hedefi (Tüm Aile / Anne / Baba / Kardeş)
+  String _selectedReceiver = 'all';
+
+  // Bas-Konuş Telsiz Canlı Kayıt State
+  bool _isRecording = false;
+  int _recordSeconds = 0;
+  Timer? _recordTimer;
+  late AnimationController _pulseAnimCtrl;
+
+  // Sesli Mesaj Oynatma State
+  String? _currentlyPlayingId;
+
   final List<String> _quickPhrases = [
-    '📚 Dersim bitti!',
-    '☕ Kısa bir mola alabilir miyim?',
-    '🥪 Biraz acıktım.',
-    '❓ Bir konuda yardıma ihtiyacım var.',
-    '❤️ Sizi seviyorum!',
+    '💧 Su / Meyve alabilir miyim?',
+    '🙋‍♂️ Bir soruda takıldım, bakar mısınız?',
+    '🚻 3 dakika mola lazım',
+    '📸 Testimi bitirdim, kontrole hazır!',
+    '📻 Cevap veriyorum: Tamam, anlaşıldı!',
+    '🚀 Uçuşa geçtim, ders başlıyor!',
   ];
 
   @override
   void initState() {
     super.initState();
     _loadMessages();
+
+    _pulseAnimCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+
     _msgSub = SupabaseService.messageStreamController.stream.listen((msg) {
       if (mounted) {
         setState(() {
@@ -51,6 +72,8 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> {
   @override
   void dispose() {
     _msgSub?.cancel();
+    _recordTimer?.cancel();
+    _pulseAnimCtrl.dispose();
     _msgController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -58,7 +81,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> {
 
   Future<void> _loadMessages() async {
     setState(() => _isLoading = true);
-    final list = await SupabaseService.getMessages(widget.student.familyId);
+    final list = await SupabaseService.fetchMessages(widget.student.familyId, widget.student.id);
     if (mounted) {
       setState(() {
         _messages = list;
@@ -80,7 +103,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> {
     });
   }
 
-  Future<void> _sendMessage(String text) async {
+  Future<void> _sendMessage(String text, {String messageType = 'text'}) async {
     final clean = text.trim();
     if (clean.isEmpty) return;
 
@@ -89,7 +112,9 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> {
       familyId: widget.student.familyId,
       senderId: widget.student.id,
       senderName: widget.student.name,
+      receiverId: _selectedReceiver,
       content: clean,
+      messageType: messageType,
     );
 
     if (ok) {
@@ -97,247 +122,83 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> {
     }
   }
 
-  void _openAppealModal() {
-    final titleController = TextEditingController();
-    final reasonController = TextEditingController();
+  // BAS-KONUŞ CANLI KAYIT BAŞLAT
+  void _startVoiceRecording() {
+    setState(() {
+      _isRecording = true;
+      _recordSeconds = 0;
+    });
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: KidsTheme.cardSlate,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    // Telsiz mandalına basma efekti sesi (bip)
+    TTSService.speak('Bip!');
+
+    _recordTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (mounted) {
+        setState(() => _recordSeconds++);
+      }
+    });
+  }
+
+  // BAS-KONUŞ KAYDI DURDUR VE TELSİZDEN FIRLAT
+  Future<void> _stopVoiceRecording() async {
+    if (!_isRecording) return;
+    _recordTimer?.cancel();
+    final duration = _recordSeconds > 0 ? _recordSeconds : 1;
+
+    setState(() {
+      _isRecording = false;
+    });
+
+    final voiceContent = '🎙️ Sesli Telsiz Anonsu ($duration sn): "${widget.student.name} telsizden sesleniyor, tamam!"';
+    await _sendMessage(voiceContent, messageType: 'audio');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('📻 Telsiz Anonsu Gönderildi ($duration saniye)'),
+        backgroundColor: KidsTheme.emerald,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
       ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 32,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 48,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: KidsTheme.purpleAccent.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Text('⚖️', style: TextStyle(fontSize: 24)),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Adalet Divanı (Hakem Heyeti)',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          'Kalkan kaybı veya kural itirazı yap',
-                          style: TextStyle(fontSize: 12, color: KidsTheme.textMuted),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: titleController,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: 'İtiraz Konusu (Örn: Ekran süresi erken bitti)',
-                  hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-                  filled: true,
-                  fillColor: Colors.black26,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reasonController,
-                maxLines: 3,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: 'Açıklaman (Neden haklı olduğunu detaylıca anlat)...',
-                  hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-                  filled: true,
-                  fillColor: Colors.black26,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  if (titleController.text.trim().isEmpty || reasonController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Lütfen konu ve açıklama alanlarını doldurun.'),
-                        backgroundColor: KidsTheme.roseLight,
-                      ),
-                    );
-                    return;
-                  }
-                  Navigator.pop(ctx);
-                  final ok = await SupabaseService.submitAppeal(
-                    familyId: widget.student.familyId,
-                    studentId: widget.student.id,
-                    title: titleController.text.trim(),
-                    reason: reasonController.text.trim(),
-                  );
-                  if (ok) {
-                    widget.onRefreshUser();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('İtirazın Aile Hakem Heyetine iletildi! ⚖️'),
-                        backgroundColor: KidsTheme.emeraldGreen,
-                      ),
-                    );
-                  }
-                },
-                icon: const Text('⚖️'),
-                label: const Text(
-                  'Divana Sun',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: KidsTheme.purpleAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
+  }
+
+  // SESLİ MESAJI DİNLE / OYNAT
+  void _playAudioMessage(MessageModel msg) {
+    if (_currentlyPlayingId == msg.id) {
+      TTSService.stop();
+      setState(() => _currentlyPlayingId = null);
+      return;
+    }
+
+    setState(() => _currentlyPlayingId = msg.id);
+
+    String speech = msg.content;
+    if (speech.contains(':')) {
+      speech = speech.split(':').last.replaceAll('"', '').trim();
+    }
+
+    TTSService.speak('${msg.senderName} telsizden diyor ki: $speech');
+
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted && _currentlyPlayingId == msg.id) {
+        setState(() => _currentlyPlayingId = null);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Top banner: Adalet Divanı quick access
-        Container(
-          margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: KidsTheme.cardSlate,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: KidsTheme.purpleAccent.withOpacity(0.3)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: KidsTheme.purpleAccent.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Text('⚖️', style: TextStyle(fontSize: 18)),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Adalet Divanı',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Text(
-                      'Haksız bir kalkan kaybı mı oldu? İtiraz et.',
-                      style: TextStyle(fontSize: 11, color: KidsTheme.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-              ElevatedButton(
-                onPressed: _openAppealModal,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: KidsTheme.purpleAccent.withOpacity(0.2),
-                  foregroundColor: KidsTheme.purpleAccent,
-                  elevation: 0,
-                  side: BorderSide(color: KidsTheme.purpleAccent.withOpacity(0.4)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                child: const Text(
-                  'İtiraz Et',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
+        // 1. Telsiz Kanal & Alıcı Barı
+        _buildRadioHeader(),
 
-        // Message history list
+        // 2. Mesaj Akış Geçmişi
         Expanded(
           child: _isLoading && _messages.isEmpty
-              ? const Center(child: CircularProgressIndicator(color: KidsTheme.cyanSoft))
+              ? const Center(child: CircularProgressIndicator(color: KidsTheme.cyan))
               : _messages.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: KidsTheme.cardSlate,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Text('📻', style: TextStyle(fontSize: 36)),
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Aile Telsizi Açık',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Aşağıdaki hızlı butonlardan birini seçebilir veya mesaj yazabilirsin.',
-                            style: TextStyle(color: KidsTheme.textMuted, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    )
+                  ? _buildEmptyRadioState()
                   : ListView.builder(
                       controller: _scrollController,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -350,83 +211,275 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> {
                     ),
         ),
 
-        // Quick phrases chips
-        Container(
-          height: 42,
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: _quickPhrases.length,
-            itemBuilder: (context, i) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ActionChip(
-                  backgroundColor: KidsTheme.surfaceElevated,
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  label: Text(
-                    _quickPhrases[i],
-                    style: const TextStyle(fontSize: 12, color: Colors.white70),
-                  ),
-                  onPressed: () => _sendMessage(_quickPhrases[i]),
-                ),
-              );
-            },
-          ),
-        ),
+        // 3. Hızlı Telsiz Kodları (Chips)
+        _buildQuickPhrasesRow(),
 
-        // Message input bar
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          decoration: BoxDecoration(
-            color: KidsTheme.surfaceElevated,
-            border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))),
+        // 4. BAS-KONUŞ & Mesaj Gönderme Konsolu
+        _buildTacticalConsole(),
+      ],
+    );
+  }
+
+  Widget _buildRadioHeader() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: KidsTheme.surfaceElevated,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: KidsTheme.cyan.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.teal.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Text('📻', style: TextStyle(fontSize: 18)),
           ),
-          child: SafeArea(
-            top: false,
-            child: Row(
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Colors.greenAccent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'AİLE FREKANSI (CANLI)',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.greenAccent,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+                const Text(
+                  'Bas-Konuş Aile Telsizi',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+          // Adalet Divanı İtiraz Butonu
+          OutlinedButton.icon(
+            onPressed: () => AppealModal.show(context, widget.student, onSuccess: widget.onRefreshUser),
+            icon: const Text('⚖️', style: TextStyle(fontSize: 13)),
+            label: const Text('İtiraz Et', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: KidsTheme.rose.withOpacity(0.5)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyRadioState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: KidsTheme.surfaceElevated,
+              shape: BoxShape.circle,
+            ),
+            child: const Text('📻', style: TextStyle(fontSize: 40)),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Telsiz Frekansı Açık ve Net',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Aşağıdaki "BAS-KONUŞ" düğmesine basarak ailene sesli anons yapabilirsin.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: KidsTheme.textMuted, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickPhrasesRow() {
+    return Container(
+      height: 38,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: _quickPhrases.length,
+        itemBuilder: (context, i) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ActionChip(
+              backgroundColor: KidsTheme.surfaceElevated,
+              side: BorderSide(color: Colors.white.withOpacity(0.08)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              label: Text(
+                _quickPhrases[i],
+                style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold),
+              ),
+              onPressed: () => _sendMessage(_quickPhrases[i], messageType: 'quick_request'),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTacticalConsole() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+      decoration: BoxDecoration(
+        color: KidsTheme.surfaceElevated,
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            // Canlı Kayıt Yapılıyorsa Canlı Banner
+            if (_isRecording)
+              ScaleTransition(
+                scale: Tween<double>(begin: 0.96, end: 1.02).animate(
+                  CurvedAnimation(parent: _pulseAnimCtrl, curve: Curves.easeInOut),
+                ),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade900.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.redAccent, width: 2),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('🔴', style: TextStyle(fontSize: 16)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'TELSİZ YAYINDA: 00:${_recordSeconds.toString().padLeft(2, '0')} (Bırak veya Dokun: Gönder)',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            Row(
+              children: [
+                // BÜYÜK BAS-KONUŞ DÜĞMESİ
+                GestureDetector(
+                  onTapDown: (_) => _startVoiceRecording(),
+                  onTapUp: (_) => _stopVoiceRecording(),
+                  onTapCancel: () => _stopVoiceRecording(),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: _isRecording
+                          ? const LinearGradient(colors: [Colors.redAccent, Colors.red])
+                          : const LinearGradient(colors: [Color(0xFF0D9488), Color(0xFF0F766E)]),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isRecording ? Colors.red : Colors.teal).withOpacity(0.4),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _isRecording ? Icons.mic_rounded : Icons.radio_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _isRecording ? 'YAYINDA' : 'BAS-KONUŞ',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Metin Girişi
                 Expanded(
                   child: TextField(
                     controller: _msgController,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
                     decoration: InputDecoration(
-                      hintText: 'Ailene bir mesaj yaz...',
-                      hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                      hintText: 'Ailene telsiz mesajı yaz...',
+                      hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
                       filled: true,
                       fillColor: Colors.black26,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(18),
                         borderSide: BorderSide.none,
                       ),
                     ),
-                    onSubmitted: _sendMessage,
+                    onSubmitted: (t) => _sendMessage(t),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
+
+                // Gönder Butonu
                 Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [KidsTheme.indigoPrimary, KidsTheme.cyanSoft],
+                      colors: [KidsTheme.primary, KidsTheme.cyan],
                     ),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                    icon: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
                     onPressed: () => _sendMessage(_msgController.text),
                   ),
                 ),
               ],
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildMessageBubble(MessageModel msg, bool isMe) {
+    final bool isAudioMsg = msg.isAudio;
+    final bool isPlayingThis = _currentlyPlayingId == msg.id;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -438,7 +491,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: KidsTheme.purpleAccent.withOpacity(0.2),
+                color: KidsTheme.primary.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
               child: const Center(
@@ -451,7 +504,9 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isMe ? KidsTheme.indigoPrimary : KidsTheme.cardSlate,
+                color: isMe
+                    ? (isAudioMsg ? const Color(0xFF1E3A8A) : KidsTheme.primary)
+                    : (isAudioMsg ? const Color(0xFF134E4A) : KidsTheme.surfaceElevated),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(18),
                   topRight: const Radius.circular(18),
@@ -459,7 +514,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> {
                   bottomRight: Radius.circular(isMe ? 4 : 18),
                 ),
                 border: Border.all(
-                  color: isMe ? Colors.white24 : Colors.white10,
+                  color: isAudioMsg ? Colors.cyanAccent.withOpacity(0.4) : (isMe ? Colors.white24 : Colors.white10),
                 ),
               ),
               child: Column(
@@ -471,18 +526,53 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> {
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: KidsTheme.cyanSoft,
+                        color: KidsTheme.cyan,
                       ),
                     ),
-                  Text(
-                    msg.content,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      height: 1.3,
+
+                  // Sesli Mesaj Oynatıcı Kartı
+                  if (isAudioMsg) ...[
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          onPressed: () => _playAudioMessage(msg),
+                          icon: Icon(
+                            isPlayingThis ? Icons.stop_circle_rounded : Icons.play_circle_fill_rounded,
+                            color: isPlayingThis ? Colors.amber : Colors.cyanAccent,
+                            size: 28,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isPlayingThis ? 'Telsiz Çalıyor... 📻' : 'Sesli Telsiz Anonsu 🎙️',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            const Text(
+                              'ılı.lıllılı.ıllı.lı',
+                              style: TextStyle(color: Colors.cyanAccent, fontSize: 11, letterSpacing: 1.5),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 2),
+                  ] else ...[
+                    Text(
+                      msg.content,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 3),
                   Text(
                     '${msg.createdAt.hour.toString().padLeft(2, '0')}:${msg.createdAt.minute.toString().padLeft(2, '0')}',
                     style: TextStyle(
