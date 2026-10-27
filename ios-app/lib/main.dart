@@ -4,7 +4,10 @@ import 'services/session_manager.dart';
 import 'services/notification_service.dart';
 import 'services/audio_keep_alive_service.dart';
 import 'services/supabase_service.dart';
-import 'screens/webview_screen.dart';
+import 'models/user_model.dart';
+import 'theme/kids_theme.dart';
+import 'screens/kids/kids_auth_screen.dart';
+import 'screens/kids/kids_home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,16 +38,38 @@ class FamilyOSApp extends StatefulWidget {
 }
 
 class _FamilyOSAppState extends State<FamilyOSApp> with WidgetsBindingObserver {
+  bool _isLoading = true;
+  UserModel? _student;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _bootstrap();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  Future<void> _bootstrap() async {
+    if (SessionManager.isLoggedIn && SessionManager.userId.isNotEmpty) {
+      final user = await SupabaseService.fetchStudentProfile(SessionManager.userId);
+      if (mounted) {
+        setState(() {
+          _student = user;
+          _isLoading = false;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   /// Öğrenci Uygulamadan Çıkma & Minimize Sensörü
@@ -66,18 +91,19 @@ class _FamilyOSAppState extends State<FamilyOSApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FamilyToStudy',
+      title: 'FamilyToStudy Kids',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF6366F1),
-          secondary: Color(0xFF10B981),
-          surface: Color(0xFF1E293B),
-        ),
-      ),
-      home: const FamilyWebViewScreen(),
+      theme: KidsTheme.themeData,
+      home: _isLoading
+          ? const Scaffold(
+              backgroundColor: KidsTheme.bgMidnight,
+              body: Center(
+                child: CircularProgressIndicator(color: KidsTheme.cyanSoft),
+              ),
+            )
+          : _student != null
+              ? KidsHomeScreen(initialStudent: _student!)
+              : const KidsAuthScreen(),
     );
   }
 }

@@ -1,0 +1,61 @@
+class UserModel {
+  final String id;
+  final String familyId;
+  final String name;
+  final String role;
+  final String currentState;
+  final String? stateEndsAt;
+  final int pointsBalance;
+  final int piggyBankBalance;
+  final int dailyShields;
+  final bool graceUsedToday;
+  final bool appealUsedToday;
+  final String avatarBg;
+  final String avatarEmoji;
+
+  UserModel({
+    required this.id,
+    required this.familyId,
+    required this.name,
+    required this.role,
+    this.currentState = 'FREE_TIME',
+    this.stateEndsAt,
+    this.pointsBalance = 0,
+    this.piggyBankBalance = 0,
+    this.dailyShields = 3,
+    this.graceUsedToday = false,
+    this.appealUsedToday = false,
+    this.avatarBg = 'from-indigo-500 to-purple-600',
+    this.avatarEmoji = '🦁',
+  });
+
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    final avatar = json['avatar_config'] as Map<String, dynamic>? ?? {};
+    return UserModel(
+      id: json['id']?.toString() ?? '',
+      familyId: json['family_id']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Öğrenci',
+      role: json['role']?.toString() ?? 'child',
+      currentState: json['current_state']?.toString() ?? 'FREE_TIME',
+      stateEndsAt: json['state_ends_at']?.toString(),
+      pointsBalance: json['points_balance'] is int
+          ? json['points_balance']
+          : int.tryParse(json['points_balance']?.toString() ?? '0') ?? 0,
+      piggyBankBalance: json['piggy_bank_balance'] is int
+          ? json['piggy_bank_balance']
+          : int.tryParse(json['piggy_bank_balance']?.toString() ?? '0') ?? 0,
+      dailyShields: json['daily_shields'] is int
+          ? json['daily_shields']
+          : int.tryParse(json['daily_shields']?.toString() ?? '3') ?? 3,
+      graceUsedToday: json['grace_used_today'] == true,
+      appealUsedToday: json['appeal_used_today'] == true,
+      avatarBg: avatar['bg']?.toString() ?? 'from-indigo-500 to-purple-600',
+      avatarEmoji: avatar['emoji']?.toString() ?? '🦁',
+    );
+  }
+
+  int get totalXp => pointsBalance + piggyBankBalance;
+  int get level => (totalXp ~/ 100) + 1;
+  double get levelProgress => (totalXp % 100) / 100.0;
+  bool get isStudying => currentState == 'STUDY_TIME' || currentState == 'ROUTINE_TIME';
+}
