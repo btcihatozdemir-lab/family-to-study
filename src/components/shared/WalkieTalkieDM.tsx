@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useFamilyRealtime } from '@/context/FamilyRealtimeContext';
+import { UserProfile } from '@/types/database';
 import {
   Mic,
   Send,
