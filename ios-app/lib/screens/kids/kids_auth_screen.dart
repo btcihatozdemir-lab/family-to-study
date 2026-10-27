@@ -33,7 +33,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     // Açılışta varsayılan aile kodunu otomatik sorgula
     _lookupFamily();
   }
@@ -154,6 +154,27 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
     }
   }
 
+  /// Hızlı Ebeveyn Girişi (Tek Tıkla Giriş)
+  Future<void> _handleQuickParentLogin(UserModel parent, [String pin = '1234']) async {
+    setState(() {
+      _isFamilyLoading = true;
+      _familyError = null;
+    });
+
+    final user = await SupabaseService.loginStudentWithPin(
+      studentId: parent.id,
+      pin: pin,
+    );
+
+    setState(() => _isFamilyLoading = false);
+
+    if (user != null && mounted) {
+      _navigateHome(user);
+    } else {
+      setState(() => _familyError = 'Ebeveyn girişi başarısız. Lütfen şifrenizi kontrol edin.');
+    }
+  }
+
   void _navigateHome(UserModel user) {
     if (user.role == 'parent') {
       Navigator.pushReplacement(
@@ -183,9 +204,13 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                 children: [
                   // Logo ve Başlık
                   _buildBrandHeader(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  // Sekme Başlıkları
+                  // Ebeveyn Hızlı Geçiş Bannerı (Göz Alıcı Vurgu)
+                  _buildParentQuickSwitchBanner(),
+                  const SizedBox(height: 16),
+
+                  // Sekme Başlıkları (3 Sekme: Öğrenci, Ebeveyn, Kod)
                   Container(
                     decoration: BoxDecoration(
                       color: KidsTheme.surface,
@@ -203,15 +228,19 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                       dividerColor: Colors.transparent,
                       labelColor: Colors.white,
                       unselectedLabelColor: KidsTheme.textMuted,
-                      labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                      labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
                       tabs: const [
                         Tab(
-                          icon: Icon(Icons.family_restroom_rounded, size: 18),
-                          text: 'Ailemle Giriş (Profil)',
+                          icon: Icon(Icons.school_rounded, size: 18),
+                          text: '🧒 Öğrenci',
+                        ),
+                        Tab(
+                          icon: Icon(Icons.shield_rounded, size: 18),
+                          text: '🛡️ Ebeveyn',
                         ),
                         Tab(
                           icon: Icon(Icons.key_rounded, size: 18),
-                          text: 'Kullanıcı Adı / Kod',
+                          text: '🔑 Kod / PIN',
                         ),
                       ],
                     ),
@@ -222,11 +251,12 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                   AnimatedSize(
                     duration: const Duration(milliseconds: 300),
                     child: SizedBox(
-                      height: 440,
+                      height: 460,
                       child: TabBarView(
                         controller: _tabController,
                         children: [
                           _buildFamilyProfilesTab(),
+                          _buildParentAuthTab(),
                           _buildDirectLoginTab(),
                         ],
                       ),
@@ -237,6 +267,73 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildParentQuickSwitchBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF4361EE).withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4361EE).withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4361EE).withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Text('🛡️', style: TextStyle(fontSize: 22)),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ebeveyn / Veli Misiniz?',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Fam Yönetim Paneline bağlanın',
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _tabController.animateTo(1);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4361EE),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Ebeveyn Girişi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+        ],
       ),
     );
   }
@@ -609,6 +706,209 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
               style: const TextStyle(color: KidsTheme.rose, fontSize: 11, fontWeight: FontWeight.w700),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Ebeveyn / Veli Yönetim Giriş Sekmesi
+  Widget _buildParentAuthTab() {
+    final parents = _familyMembers.where((m) => m.role == 'parent').toList();
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF4361EE).withOpacity(0.4)),
+            ),
+            child: const Row(
+              children: [
+                Text('🛡️', style: TextStyle(fontSize: 24)),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ebeveyn Komuta Paneli (Fam)',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Giriş yapmak istediğiniz ebeveyn profilini seçin.',
+                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          if (parents.isEmpty && _isFamilyLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(color: Color(0xFF4361EE)),
+              ),
+            )
+          else if (parents.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: KidsTheme.cardDecoration(),
+              child: const Text(
+                'Bu ailede kayıtlı ebeveyn bulunamadı.',
+                style: TextStyle(color: KidsTheme.textMuted, fontSize: 12),
+              ),
+            )
+          else ...[
+            // Ebeveyn Profil Kartları
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: parents.map((parent) {
+                final isSelected = _selectedMember?.id == parent.id;
+
+                return InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedMember = parent;
+                      _memberPinController.text = '1234';
+                      _familyError = null;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(18),
+                  child: Container(
+                    width: 140,
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFF4361EE).withOpacity(0.25) : KidsTheme.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFF4361EE) : Colors.white.withOpacity(0.1),
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: const Color(0xFF4361EE).withOpacity(0.2),
+                          child: Text(
+                            parent.avatarEmoji.isNotEmpty
+                                ? parent.avatarEmoji
+                                : (parent.gender == 'female' ? '👩‍💼' : '👨‍💼'),
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          parent.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          parent.isPrimaryAdmin ? '${parent.roleTitle} 👑' : parent.roleTitle,
+                          style: const TextStyle(
+                            color: Color(0xFF4CC9F0),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // PIN Kutusu
+            Container(
+              decoration: KidsTheme.cardDecoration(borderColor: const Color(0xFF4361EE).withOpacity(0.4)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              child: TextField(
+                controller: _memberPinController,
+                obscureText: true,
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  hintText: '${_selectedMember?.name ?? "Ebeveyn"} PIN / Şifresi',
+                  hintStyle: const TextStyle(color: KidsTheme.textMuted, fontSize: 12),
+                  border: InputBorder.none,
+                  prefixIcon: const Icon(Icons.lock_rounded, color: Color(0xFF4CC9F0), size: 20),
+                ),
+                onSubmitted: (_) {
+                  if (_selectedMember != null) {
+                    _handleMemberPinLogin();
+                  } else if (parents.isNotEmpty) {
+                    _handleQuickParentLogin(parents.first, _memberPinController.text.trim());
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            if (_familyError != null) ...[
+              _buildErrorBox(_familyError!),
+              const SizedBox(height: 12),
+            ],
+
+            ElevatedButton.icon(
+              onPressed: () {
+                if (_selectedMember != null) {
+                  _handleMemberPinLogin();
+                } else if (parents.isNotEmpty) {
+                  _handleQuickParentLogin(parents.first, _memberPinController.text.trim());
+                }
+              },
+              icon: const Text('🛡️', style: TextStyle(fontSize: 18)),
+              label: Text(
+                _selectedMember != null
+                    ? '${_selectedMember!.name} Olarak Paneli Aç'
+                    : 'Ebeveyn Paneline Giriş Yap',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4361EE),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Hızlı 1-Tık Kurucu Girişi Butonu
+            OutlinedButton.icon(
+              onPressed: () {
+                final primary = parents.firstWhere((p) => p.isPrimaryAdmin, orElse: () => parents.first);
+                _handleQuickParentLogin(primary, '1234');
+              },
+              icon: const Text('👑', style: TextStyle(fontSize: 16)),
+              label: const Text(
+                'Hızlı Giriş: Cihat Özdemir (Kurucu Baba)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: KidsTheme.gold,
+                side: BorderSide(color: KidsTheme.gold.withOpacity(0.5)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ],
         ],
       ),
     );
