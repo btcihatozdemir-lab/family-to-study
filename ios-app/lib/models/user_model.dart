@@ -14,6 +14,9 @@ class UserModel {
   final String avatarEmoji;
   final int wheelSpinsAvailable;
   final int streakDays;
+  final String roleTitle;
+  final String gender;
+  final bool isPrimaryAdmin;
 
   UserModel({
     required this.id,
@@ -31,15 +34,22 @@ class UserModel {
     this.avatarEmoji = '🦁',
     this.wheelSpinsAvailable = 1,
     this.streakDays = 0,
+    this.roleTitle = 'Veli',
+    this.gender = 'male',
+    this.isPrimaryAdmin = false,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     final avatar = json['avatar_config'] as Map<String, dynamic>? ?? {};
+    final rawRole = json['role']?.toString() ?? 'child';
+    final rawTitle = avatar['roleTitle']?.toString() ??
+        (rawRole == 'parent' ? 'Veli' : 'Çocuk');
+
     return UserModel(
       id: json['id']?.toString() ?? '',
       familyId: json['family_id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Öğrenci',
-      role: json['role']?.toString() ?? 'child',
+      role: rawRole,
       currentState: json['current_state']?.toString() ?? 'FREE_TIME',
       stateEndsAt: json['state_ends_at']?.toString(),
       pointsBalance: json['points_balance'] is int
@@ -61,6 +71,9 @@ class UserModel {
       streakDays: json['streak_days'] is int
           ? json['streak_days']
           : int.tryParse(json['streak_days']?.toString() ?? '0') ?? 0,
+      roleTitle: rawTitle,
+      gender: avatar['gender']?.toString() ?? 'male',
+      isPrimaryAdmin: avatar['isPrimaryAdmin'] == true || avatar['is_primary_admin'] == true,
     );
   }
 
@@ -68,4 +81,30 @@ class UserModel {
   int get level => (totalXp ~/ 100) + 1;
   double get levelProgress => (totalXp % 100) / 100.0;
   bool get isStudying => currentState == 'STUDY_TIME' || currentState == 'ROUTINE_TIME';
+
+  /// Çocuğun perspektifinden gerçek akrabalık hitabını döndürür.
+  /// (Asla velinin yazdığı "Eşim" veya "Ben" çocuğa gösterilmez!)
+  String getKinshipNameForChild(UserModel child) {
+    if (id == child.id) return 'Ben';
+    final rt = roleTitle.toLowerCase();
+    final nm = name.toLowerCase();
+
+    if (role == 'parent') {
+      if (rt.contains('anne') || nm.contains('anne') || nm.contains('merve') || nm.contains('eşim')) return 'Annem';
+      if (rt.contains('baba') || nm.contains('baba') || nm.contains('cihat') || nm.contains('ben')) return 'Babam';
+      if (rt.contains('hala')) return 'Halam';
+      if (rt.contains('dayı')) return 'Dayım';
+      if (rt.contains('teyze')) return 'Teyzem';
+      if (rt.contains('amca')) return 'Amcam';
+      if (rt.contains('dede')) return 'Dedem';
+      if (rt.contains('anneanne')) return 'Anneannem';
+      if (rt.contains('babaanne')) return 'Babaannem';
+      if (rt.contains('abla')) return 'Ablam';
+      if (rt.contains('abi')) return 'Abim';
+      return name.split(' ').first;
+    } else {
+      // Çocuk kardeş
+      return name.split(' ').first;
+    }
+  }
 }

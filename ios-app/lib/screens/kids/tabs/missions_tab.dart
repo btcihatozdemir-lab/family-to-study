@@ -4,6 +4,8 @@ import '../../../theme/kids_theme.dart';
 import '../../../models/task_model.dart';
 import '../../../models/user_model.dart';
 import '../../../services/supabase_service.dart';
+import '../../../services/tts_service.dart';
+import '../widgets/active_break_widget.dart';
 import '../modals/appeal_modal.dart';
 import '../modals/companion_modal.dart';
 import '../modals/grace_period_modal.dart';
@@ -178,15 +180,25 @@ class _MissionsTabState extends State<MissionsTab> {
           _buildMoodSelector(),
           const SizedBox(height: 12),
 
-          // 2. HIZLI ERİŞİM MERKEZİ (MODALLAR: İTİRAZ, YOLDAŞ, MERHAMET, ALBÜM, RÖPORTAJ, GÖREV ÖNER)
+          // 2. ODAKLANMA UÇUŞU & DERS KRONOMETRESİ BAŞLATICI
+          _buildFocusFlightLauncher(),
+
+          // 3. BİLİŞSEL ENERJİ MOLASI & RUŞETİ (SU İÇ, CAMI AÇ, ESNE, YÜRÜ)
+          ActiveBreakWidget(
+            student: widget.student,
+            onRefreshUser: () => widget.onRefreshUser?.call(),
+          ),
+          const SizedBox(height: 12),
+
+          // 4. HIZLI ERİŞİM MERKEZİ (MODALLAR: İTİRAZ, YOLDAŞ, MERHAMET, ALBÜM, RÖPORTAJ, GÖREV ÖNER)
           _buildQuickActionHub(),
           const SizedBox(height: 16),
 
-          // 3. KATEGORİ FİLTRE BARIK
+          // 5. KATEGORİ FİLTRE BARIK
           _buildCategoryFilters(),
           const SizedBox(height: 14),
 
-          // 4. İLK KAPAR GÖREV YARIŞLARI
+          // 6. İLK KAPAR GÖREV YARIŞLARI
           ..._tasks.where((t) => t.isFirstComeRace && t.claimedBy == null).map(
                 (raceTask) => _buildRaceCard(raceTask),
               ),
@@ -243,6 +255,124 @@ class _MissionsTabState extends State<MissionsTab> {
               ),
             );
           }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFocusFlightLauncher() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E1B4B), Color(0xFF312E81), Color(0xFF0F172A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.indigoAccent.withOpacity(0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.indigo.withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('🚀', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ODAKLANMA UÇUŞU & DERS KRONOMETRESİ',
+                      style: TextStyle(
+                        color: Colors.indigoAccent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    Text(
+                      'Kalkan koruması ve ders sayacını başlat',
+                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    TTSService.speak('Dikkat dikkat! ${widget.student.name} için 40 dakikalık odaklanma uçuşu başlıyor, başarılar kaptan!');
+                    await SupabaseService.setStudentState(
+                      studentId: widget.student.id,
+                      newState: 'STUDY_TIME',
+                      durationMinutes: 40,
+                    );
+                    widget.onRefreshUser?.call();
+                  },
+                  icon: const Icon(Icons.flight_takeoff_rounded, color: Colors.white, size: 16),
+                  label: const Text('40 Dk Ders 🚀', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: KidsTheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    TTSService.speak('Dikkat dikkat! 25 dakikalık Pomodoro odaklanması başlıyor!');
+                    await SupabaseService.setStudentState(
+                      studentId: widget.student.id,
+                      newState: 'STUDY_TIME',
+                      durationMinutes: 25,
+                    );
+                    widget.onRefreshUser?.call();
+                  },
+                  icon: const Icon(Icons.timer_rounded, color: Colors.white, size: 16),
+                  label: const Text('25 Dk Pomodoro ⏱️', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F766E),
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              OutlinedButton(
+                onPressed: () async {
+                  TTSService.speak('Teneffüs zili çaldı! 10 dakika mola başladı.');
+                  await SupabaseService.setStudentState(
+                    studentId: widget.student.id,
+                    newState: 'BREAK_TIME',
+                    durationMinutes: 10,
+                  );
+                  widget.onRefreshUser?.call();
+                },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.emeraldAccent.withOpacity(0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('10 Dk Mola 🔔', style: TextStyle(color: Colors.emeraldAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
         ],
       ),
     );

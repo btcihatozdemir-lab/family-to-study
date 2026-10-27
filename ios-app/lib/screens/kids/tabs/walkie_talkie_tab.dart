@@ -5,6 +5,7 @@ import '../../../models/user_model.dart';
 import '../../../models/message_model.dart';
 import '../../../services/supabase_service.dart';
 import '../../../services/tts_service.dart';
+import '../../../services/walkie_audio_service.dart';
 import '../../../theme/kids_theme.dart';
 import '../modals/appeal_modal.dart';
 
@@ -28,7 +29,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
   final ScrollController _quickPhrasesScrollCtrl = ScrollController();
 
   List<MessageModel> _messages = [];
-  List<UserModel> _otherMembers = [];
+  List<UserModel> _allMembers = [];
   bool _isLoading = false;
   StreamSubscription<MessageModel>? _msgSub;
 
@@ -59,8 +60,8 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _loadMessages();
     _loadFamilyMembers();
+    _loadMessages();
 
     _pulseAnimCtrl = AnimationController(
       vsync: this,
@@ -70,10 +71,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
     _msgSub = SupabaseService.messageStreamController.stream.listen((msg) {
       if (mounted) {
         setState(() {
-          // Eğer aynı ID yoksa listeye ekle
-          if (!_messages.any((m) => m.id == msg.id)) {
-            _messages.add(msg);
-          }
+          _addOrReplaceMessage(msg);
         });
         _scrollToBottom();
       }
@@ -95,22 +93,63 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
     final members = await SupabaseService.fetchFamilyMembers(widget.student.familyId);
     if (mounted) {
       setState(() {
-        _otherMembers = members.where((m) => m.id != widget.student.id).toList();
+        _allMembers = members;
       });
     }
   }
 
+  /// Mesajları çeker ve mükerrer (duplicate) olanları otomatik tekilleştirir
   Future<void> _loadMessages({bool silent = false}) async {
     if (!silent) {
       setState(() => _isLoading = true);
     }
-    final list = await SupabaseService.fetchMessages(widget.student.familyId, widget.student.id);
+    final rawList = await SupabaseService.fetchMessages(widget.student.familyId, widget.student.id);
+
+    // Akıllı Tekilleştirme (Deduplication)
+    final List<MessageModel> deduplicated = [];
+    for (final m in rawList) {
+      final isDup = deduplicated.any((existing) =>
+          existing.id == m.id ||
+          (existing.senderId == m.senderId &&
+           existing.content == m.content &&
+           existing.createdAt.difference(m.createdAt).abs().inSeconds < 4));
+      if (!isDup) {
+        deduplicated.add(m);
+      }
+    }
+
     if (mounted) {
       setState(() {
-        _messages = list;
+        _messages = deduplicated;
         _isLoading = false;
       });
       _scrollToBottom();
+    }
+  }
+
+  void _addOrReplaceMessage(MessageModel msg) {
+    // 1. Zaten var olan ID varsa ekleme
+    if (_messages.any((m) => m.id == msg.id)) return;
+
+    // 2. Geçici iyimser mesajla eşleşiyorsa onu kalıcı ID ile güncelle
+    final tempIndex = _messages.indexWhere((m) =>
+        m.id.startsWith('temp-') &&
+        m.senderId == msg.senderId &&
+        m.content == msg.content);
+
+    if (tempIndex != -1) {
+      _messages[tempIndex] = msg;
+      return;
+    }
+
+    // 3. Çoklu ebeveyn yayını nedeniyle 4 saniye içinde gelen aynı mesajı süz
+    final isDuplicate = _messages.any((m) =>
+        m.senderId == msg.senderId &&
+        m.content == msg.content &&
+        m.createdAt.difference(msg.createdAt).abs().inSeconds < 4);
+
+    if (!isDuplicate) {
+      _messages.add(msg);
     }
   }
 
@@ -126,19 +165,34 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
     });
   }
 
+  /// Çocuğun gözünden isim çözümleme
+  String _resolveSenderName(MessageModel msg) {
+    if (msg.senderId == widget.student.id) return 'Ben';
+    final member = _allMembers.firstWhere(
+      (m) => m.id == msg.senderId,
+      orElse: () => UserModel(
+        id: msg.senderId,
+        familyId: widget.student.familyId,
+        name: msg.senderName,
+        role: 'parent',
+      ),
+    );
+    return member.getKinshipNameForChild(widget.student);
+  }
+
   Future<void> _sendMessage(String text, {String messageType = 'text', String? audioUrl}) async {
     final clean = text.trim();
     if (clean.isEmpty) return;
 
     _msgController.clear();
 
-    // İyimser UI güncellemesi (Optimistic update): Kullanıcı hemen görsün
+    // İyimser UI güncellemesi (Tek bir mesaj olarak anında göster)
     final tempId = 'temp-${DateTime.now().millisecondsSinceEpoch}';
     final optimisticMsg = MessageModel(
       id: tempId,
       familyId: widget.student.familyId,
       senderId: widget.student.id,
-      senderName: widget.student.name,
+      senderName: 'Ben',
       receiverId: _selectedReceiver,
       messageType: messageType,
       content: clean,
@@ -148,7 +202,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
     );
 
     setState(() {
-      _messages.add(optimisticMsg);
+      _addOrReplaceMessage(optimisticMsg);
     });
     _scrollToBottom();
 
@@ -177,15 +231,16 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
     }
   }
 
-  // BAS-KONUŞ CANLI KAYIT BAŞLAT
-  void _startVoiceRecording() {
+  // GERÇEK MİKROFON İLE BAS-KONUŞ CANLI SES KAYDI BAŞLAT
+  Future<void> _startVoiceRecording() async {
     if (_isRecording) return;
     setState(() {
       _isRecording = true;
       _recordSeconds = 0;
     });
 
-    TTSService.speak('Bip! Telsiz mandalı açıldı.');
+    TTSService.speak('Bip!');
+    await WalkieAudioService.startRecording();
 
     _recordTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (mounted) {
@@ -194,7 +249,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
     });
   }
 
-  // BAS-KONUŞ KAYDI DURDUR VE TELSİZDEN FIRLAT
+  // BAS-KONUŞ KAYDI DURDUR VE GERÇEK SES DOSYASINI FIRLAT
   Future<void> _stopVoiceRecording() async {
     if (!_isRecording) return;
     _recordTimer?.cancel();
@@ -204,15 +259,16 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
       _isRecording = false;
     });
 
-    TTSService.speak('Bip! Tamam.');
+    // Gerçek ses Base64 verisini al
+    final audioBase64 = await WalkieAudioService.stopRecording();
 
-    final voiceContent = '🎙️ Sesli Telsiz Anonsu ($duration sn): "${widget.student.name} telsizden sesleniyor, tamam!"';
-    await _sendMessage(voiceContent, messageType: 'audio');
+    final voiceContent = '🎙️ Sesli Telsiz Anonsu ($duration sn)';
+    await _sendMessage(voiceContent, messageType: 'audio', audioUrl: audioBase64);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('📻 Telsiz Anonsu Gönderildi ($duration saniye)'),
+          content: Text('📻 Gerçek Sesli Anons Gönderildi ($duration saniye)'),
           backgroundColor: KidsTheme.emerald,
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
@@ -221,7 +277,6 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
     }
   }
 
-  // BAS-KONUŞ TIKLA-AÇ / TIKLA-KAPAT TOGGLE
   void _toggleVoiceRecording() {
     if (_isRecording) {
       _stopVoiceRecording();
@@ -230,9 +285,10 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
     }
   }
 
-  // SESLİ MESAJI DİNLE / OYNAT
+  // GERÇEK SESLİ MESAJI OYNAT
   void _playAudioMessage(MessageModel msg) {
     if (_currentlyPlayingId == msg.id) {
+      WalkieAudioService.stopAudio();
       TTSService.stop();
       setState(() => _currentlyPlayingId = null);
       return;
@@ -240,25 +296,35 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
 
     setState(() => _currentlyPlayingId = msg.id);
 
-    String speech = msg.content;
-    if (speech.contains(':')) {
-      speech = speech.split(':').last.replaceAll('"', '').trim();
-    }
-
-    TTSService.speak('${msg.senderName} telsizden diyor ki: $speech');
-
-    Future.delayed(const Duration(seconds: 4), () {
-      if (mounted && _currentlyPlayingId == msg.id) {
-        setState(() => _currentlyPlayingId = null);
+    // Eğer gerçek ses kaydı varsa doğrudan kullanıcının kendi sesini çal
+    if (msg.audioUrl != null && msg.audioUrl!.startsWith('data:audio')) {
+      WalkieAudioService.playAudio(msg.audioUrl!);
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted && _currentlyPlayingId == msg.id) {
+          setState(() => _currentlyPlayingId = null);
+        }
+      });
+    } else {
+      // Fallback: Gerçek ses yoksa doğal Türkçe ile oku
+      final senderTitle = _resolveSenderName(msg);
+      String speech = msg.content;
+      if (speech.contains(':')) {
+        speech = speech.split(':').last.replaceAll('"', '').trim();
       }
-    });
+      TTSService.speak('$senderTitle telsizden diyor ki: $speech');
+      Future.delayed(const Duration(seconds: 4), () {
+        if (mounted && _currentlyPlayingId == msg.id) {
+          setState(() => _currentlyPlayingId = null);
+        }
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // 1. Telsiz Kanal & Alıcı Seçim Barı
+        // 1. Telsiz Kanal & Alıcı Seçim Barı (Çocuk Hitaplı)
         _buildRadioHeader(),
 
         // 2. Mesaj Akış Geçmişi
@@ -289,6 +355,8 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
   }
 
   Widget _buildRadioHeader() {
+    final otherMembers = _allMembers.where((m) => m.id != widget.student.id).toList();
+
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 10, 14, 6),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -357,8 +425,8 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
             ],
           ),
 
-          // Alıcı Seçici (Tüm Aile / Anne / Baba / Kardeş)
-          if (_otherMembers.isNotEmpty) ...[
+          // Alıcı Seçici (Tüm Aile / Annem / Babam / Kardeşim)
+          if (otherMembers.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
@@ -368,7 +436,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
               ),
               child: Row(
                 children: [
-                  const Text('Alıcı: ', style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const Text('Kime: ', style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 4),
                   Expanded(
                     child: SingleChildScrollView(
@@ -376,10 +444,12 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
                       child: Row(
                         children: [
                           _buildReceiverChip('all', '📢 Tüm Aile'),
-                          ..._otherMembers.map((m) {
-                            final icon = m.role == 'parent' ? '👨‍👩‍👧' : '🧒';
-                            final shortName = m.name.split(' ').first;
-                            return _buildReceiverChip(m.id, '$icon $shortName');
+                          ...otherMembers.map((m) {
+                            final kinshipLabel = m.getKinshipNameForChild(widget.student);
+                            final icon = m.role == 'parent'
+                                ? (m.gender == 'female' ? '👩' : '👨')
+                                : (m.gender == 'female' ? '👧' : '👦');
+                            return _buildReceiverChip(m.id, '$icon $kinshipLabel');
                           }),
                         ],
                       ),
@@ -448,7 +518,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
           ),
           const SizedBox(height: 4),
           const Text(
-            'Aşağıdaki "BAS-KONUŞ" düğmesine dokunarak veya hazır mesaj seçerek ailene anons yapabilirsin.',
+            'Aşağıdaki "BAS-KONUŞ" düğmesine dokunarak ailene sesli anons gönderebilirsin.',
             textAlign: TextAlign.center,
             style: TextStyle(color: KidsTheme.textMuted, fontSize: 12),
           ),
@@ -571,7 +641,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
                       const Text('🔴', style: TextStyle(fontSize: 16)),
                       const SizedBox(width: 8),
                       Text(
-                        'TELSİZ YAYINDA: 00:${_recordSeconds.toString().padLeft(2, '0')} (Bitirmek ve Göndermek için Dokun)',
+                        'GERÇEK SES KAYDEDİLİYOR: 00:${_recordSeconds.toString().padLeft(2, '0')} (Bitirmek için Dokun)',
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
                       ),
                     ],
@@ -581,7 +651,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
 
             Row(
               children: [
-                // BÜYÜK BAS-KONUŞ DÜĞMESİ (Hem Tıklama Hem Basılı Tutma Desteği)
+                // BÜYÜK BAS-KONUŞ DÜĞMESİ (Gerçek Ses Kaydı)
                 GestureDetector(
                   onTap: _toggleVoiceRecording,
                   onLongPressStart: (_) => _startVoiceRecording(),
@@ -670,6 +740,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
   Widget _buildMessageBubble(MessageModel msg, bool isMe) {
     final bool isAudioMsg = msg.isAudio;
     final bool isPlayingThis = _currentlyPlayingId == msg.id;
+    final String senderDisplayName = _resolveSenderName(msg);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -685,8 +756,11 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
                 color: KidsTheme.primary.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Center(
-                child: Text('👨‍👩‍👧', style: TextStyle(fontSize: 14)),
+              child: Center(
+                child: Text(
+                  senderDisplayName == 'Annem' ? '👩' : (senderDisplayName == 'Babam' ? '👨' : '🧒'),
+                  style: const TextStyle(fontSize: 14),
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -713,7 +787,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
                 children: [
                   if (!isMe)
                     Text(
-                      msg.senderName,
+                      senderDisplayName,
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -721,7 +795,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
                       ),
                     ),
 
-                  // Sesli Mesaj Oynatıcı Kartı
+                  // Sesli Mesaj Oynatıcı Kartı (Gerçek Ses)
                   if (isAudioMsg) ...[
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -741,7 +815,7 @@ class _WalkieTalkieTabState extends State<WalkieTalkieTab> with SingleTickerProv
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isPlayingThis ? 'Telsiz Çalıyor... 📻' : 'Sesli Telsiz Anonsu 🎙️',
+                              isPlayingThis ? 'Ses Çalıyor... 📻' : 'Gerçek Sesli Telsiz 🎙️',
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                             const Text(

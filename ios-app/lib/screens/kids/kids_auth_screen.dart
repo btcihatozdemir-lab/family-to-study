@@ -404,7 +404,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                           radius: 22,
                           backgroundColor: isChild ? KidsTheme.emerald.withOpacity(0.2) : Colors.purple.withOpacity(0.2),
                           child: Text(
-                            isChild ? '🧒' : '👨‍👩‍👧',
+                            member.avatarEmoji.isNotEmpty ? member.avatarEmoji : (isChild ? (member.gender == 'female' ? '👧' : '👦') : (member.gender == 'female' ? '👩' : '👨')),
                             style: const TextStyle(fontSize: 22),
                           ),
                         ),
@@ -420,7 +420,9 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                           ),
                         ),
                         Text(
-                          isChild ? 'Öğrenci' : 'Ebeveyn',
+                          member.isPrimaryAdmin
+                              ? '${member.roleTitle} (Yönetici) 👑'
+                              : member.roleTitle,
                           style: TextStyle(
                             color: isChild ? KidsTheme.emerald : KidsTheme.primaryLight,
                             fontSize: 10,

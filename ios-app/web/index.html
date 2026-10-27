@@ -273,6 +273,103 @@
         } catch(e) {}
       }
     };
+
+    // GERÇEK MİKROFON SES KAYIT MOTORU (MediaRecorder Web Audio)
+    var _walkieRecorder = null;
+    var _walkieStream = null;
+    var _walkieChunks = [];
+    window._lastRecordedAudioBase64 = null;
+    window._isRecordingVoice = false;
+
+    window.startRealVoiceRecording = async function() {
+      try {
+        _walkieChunks = [];
+        window._lastRecordedAudioBase64 = null;
+        window._isRecordingVoice = true;
+
+        var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        _walkieStream = stream;
+        var mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+        _walkieRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+
+        _walkieRecorder.ondataavailable = function(e) {
+          if (e.data && e.data.size > 0) {
+            _walkieChunks.push(e.data);
+          }
+        };
+
+        _walkieRecorder.start(100);
+        return true;
+      } catch (err) {
+        console.warn('[WalkieTalkie] Mikrofon erişim hatası:', err);
+        window._isRecordingVoice = false;
+        return false;
+      }
+    };
+
+    window.stopRealVoiceRecording = function() {
+      return new Promise((resolve) => {
+        if (!_walkieRecorder || _walkieRecorder.state === 'inactive') {
+          window._isRecordingVoice = false;
+          resolve(window._lastRecordedAudioBase64);
+          return;
+        }
+
+        _walkieRecorder.onstop = function() {
+          var mimeType = _walkieRecorder.mimeType || 'audio/webm';
+          var blob = new Blob(_walkieChunks, { type: mimeType });
+          var reader = new FileReader();
+          reader.onloadend = function() {
+            window._lastRecordedAudioBase64 = reader.result;
+            window._isRecordingVoice = false;
+            if (_walkieStream) {
+              _walkieStream.getTracks().forEach(t => t.stop());
+            }
+            resolve(reader.result);
+          };
+          reader.readAsDataURL(blob);
+        };
+
+        _walkieRecorder.stop();
+      });
+    };
+
+    window.getLastRecordedAudio = function() {
+      return window._lastRecordedAudioBase64;
+    };
+
+    // GERÇEK SES DOSYASINI VEYA BASE64 SESİ OYNATMA
+    var _currentPlayingAudio = null;
+    window.playRealAudio = function(audioSrc) {
+      try {
+        if (_currentPlayingAudio) {
+          _currentPlayingAudio.pause();
+          _currentPlayingAudio = null;
+        }
+        var audio = new Audio(audioSrc);
+        _currentPlayingAudio = audio;
+        audio.onended = function() {
+          _currentPlayingAudio = null;
+        };
+        audio.play().catch(function(e) {
+          console.warn('[playRealAudio] Oynatma hatası:', e);
+        });
+        return true;
+      } catch (e) {
+        console.error('[playRealAudio] Hata:', e);
+        return false;
+      }
+    };
+
+    window.stopRealAudio = function() {
+      if (_currentPlayingAudio) {
+        try {
+          _currentPlayingAudio.pause();
+          _currentPlayingAudio.currentTime = 0;
+        } catch (e) {}
+        _currentPlayingAudio = null;
+      }
+    };
   </script>
 
   <script src="flutter_bootstrap.js" async></script>

@@ -743,32 +743,69 @@ export const FamilyMembersManagerModal: React.FC<FamilyMembersManagerModalProps>
               {newMemberRole === 'parent' ? (
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                    Rol Tanımı
+                    Ailedeki Rolü & Akrabalık Unvanı
                   </label>
-                  <div className="flex gap-2">
-                    {['Anne', 'Baba', 'Veli'].map((t) => (
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { title: 'Baba', emoji: '👨‍💼' },
+                      { title: 'Anne', emoji: '👩‍💼' },
+                      { title: 'Abla', emoji: '👧' },
+                      { title: 'Abi', emoji: '👦' },
+                      { title: 'Hala', emoji: '🧕' },
+                      { title: 'Dayı', emoji: '🧔' },
+                      { title: 'Teyze', emoji: '👩‍🦰' },
+                      { title: 'Amca', emoji: '👨‍🦰' },
+                      { title: 'Dede', emoji: '👴' },
+                      { title: 'Anneanne', emoji: '👵' },
+                      { title: 'Veli', emoji: '🧑‍✈️' },
+                    ].map((item) => (
                       <button
-                        key={t}
+                        key={item.title}
                         type="button"
                         onClick={() => {
-                          setNewMemberTitle(t);
-                          if (t === 'Anne') setNewMemberEmoji('👩‍💼');
-                          if (t === 'Baba') setNewMemberEmoji('👨‍💼');
+                          setNewMemberTitle(item.title);
+                          setNewMemberEmoji(item.emoji);
                         }}
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${
-                          newMemberTitle === t
-                            ? 'bg-purple-600 text-white border-purple-400'
-                            : 'bg-slate-900 text-slate-400 border-slate-800'
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                          newMemberTitle === item.title
+                            ? 'bg-purple-600 text-white border-purple-400 shadow-md'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'
                         }`}
                       >
-                        {t}
+                        {item.emoji} {item.title}
                       </button>
                     ))}
                   </div>
                 </div>
               ) : (
                 /* ÇOCUK ÖZEL AYARLARI */
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      Cinsiyet
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewMemberEmoji('🦄');
+                        }}
+                        className="flex-1 py-2 rounded-xl text-xs font-bold border border-pink-500/40 bg-pink-500/20 text-pink-300 transition hover:bg-pink-500/30"
+                      >
+                        👧 Kız Öğrenci
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewMemberEmoji('🦁');
+                        }}
+                        className="flex-1 py-2 rounded-xl text-xs font-bold border border-blue-500/40 bg-blue-500/20 text-blue-300 transition hover:bg-blue-500/30"
+                      >
+                        👦 Erkek Öğrenci
+                      </button>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-slate-300 mb-1.5">
                       Sınıf / Seviye
@@ -778,38 +815,8 @@ export const FamilyMembersManagerModal: React.FC<FamilyMembersManagerModalProps>
                       value={newMemberGrade}
                       onChange={(e) => setNewMemberGrade(e.target.value)}
                       placeholder="Örn: 5. Sınıf"
-                      className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-bold text-xs focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-bold text-xs focus:outline-none focus:border-indigo-500"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                      Yaş Modu
-                    </label>
-                    <div className="flex gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setNewMemberAgeGroup('kid')}
-                        className={`flex-1 py-2 rounded-xl text-[11px] font-bold border transition ${
-                          newMemberAgeGroup === 'kid'
-                            ? 'bg-amber-500/20 text-amber-300 border-amber-400'
-                            : 'bg-slate-900 text-slate-400 border-slate-800'
-                        }`}
-                      >
-                        🧸 Çocuk
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setNewMemberAgeGroup('teen')}
-                        className={`flex-1 py-2 rounded-xl text-[11px] font-bold border transition ${
-                          newMemberAgeGroup === 'teen'
-                            ? 'bg-purple-500/20 text-purple-300 border-purple-400'
-                            : 'bg-slate-900 text-slate-400 border-slate-800'
-                        }`}
-                      >
-                        ⚡ Genç
-                      </button>
-                    </div>
                   </div>
                 </div>
               )}

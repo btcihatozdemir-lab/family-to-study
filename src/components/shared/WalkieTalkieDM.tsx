@@ -60,6 +60,30 @@ export const WalkieTalkieDM: React.FC<WalkieTalkieDMProps> = ({
   const activeReceiverId = targetUserId || selectedReceiverId;
   const receiverUser = users.find((u) => u.id === activeReceiverId);
 
+  // Çocuğun perspektifinden gerçek akrabalık hitabını çözer
+  const getKinshipLabel = (m?: UserProfile | null) => {
+    if (!m) return 'Aile Bireyi';
+    if (m.id === currentUserId) return 'Ben';
+    if (currentUser?.role === 'child') {
+      const title = (m.avatar_config?.roleTitle || '').toLowerCase();
+      const nameLower = m.name.toLowerCase();
+      if (m.role === 'parent') {
+        if (title.includes('anne') || nameLower.includes('anne') || nameLower.includes('eşim') || nameLower.includes('merve')) return 'Annem';
+        if (title.includes('baba') || nameLower.includes('baba') || nameLower.includes('ben') || nameLower.includes('cihat')) return 'Babam';
+        if (title.includes('hala')) return 'Halam';
+        if (title.includes('dayı')) return 'Dayım';
+        if (title.includes('teyze')) return 'Teyzem';
+        if (title.includes('amca')) return 'Amcam';
+        if (title.includes('dede')) return 'Dedem';
+        if (title.includes('anneanne')) return 'Anneannem';
+        if (title.includes('babaanne')) return 'Babaannem';
+        if (title.includes('abla')) return 'Ablam';
+        if (title.includes('abi')) return 'Abim';
+      }
+    }
+    return m.name.split(' ')[0];
+  };
+
   // Filter conversation between current user and receiver (or family-wide between parents and child)
   const conversationMessages = messages.filter(
     (m) =>
@@ -182,7 +206,7 @@ export const WalkieTalkieDM: React.FC<WalkieTalkieDMProps> = ({
                 }`}
               >
                 <span>{member.avatar_config.emoji}</span>
-                <span>{member.name.split(' ')[0]}</span>
+                <span>{getKinshipLabel(member)}</span>
               </button>
             ))}
           </div>
@@ -217,7 +241,7 @@ export const WalkieTalkieDM: React.FC<WalkieTalkieDMProps> = ({
                 >
                   <div className="flex items-center gap-1.5 text-[10px] opacity-75 mb-0.5 font-semibold">
                     <span>{sender?.avatar_config.emoji}</span>
-                    <span>{sender?.name}</span>
+                    <span>{isMine ? 'Ben' : getKinshipLabel(sender)}</span>
                     <span>•</span>
                     <span>
                       {new Date(msg.created_at).toLocaleTimeString('tr-TR', {

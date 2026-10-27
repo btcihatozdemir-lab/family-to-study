@@ -37,18 +37,18 @@ export const FamilySetupWizardModal: React.FC<FamilySetupWizardModalProps> = ({
 
   const [members, setMembers] = useState<MemberDraft[]>([
     {
-      name: 'Ebeveyn (Ben)',
+      name: 'Baba',
       role: 'parent',
-      grade: 'Yetişkin',
+      grade: 'Birincil Yönetici',
       ageGroup: 'adult',
-      emoji: '👨‍✈️',
+      emoji: '👨‍💼',
     },
     {
-      name: 'Eşim',
+      name: 'Anne',
       role: 'parent',
-      grade: 'Yetişkin',
+      grade: 'Yönetici Veli',
       ageGroup: 'adult',
-      emoji: '👩‍🚀',
+      emoji: '👩‍💼',
     },
     {
       name: 'Öğrenci 1',
