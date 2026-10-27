@@ -366,7 +366,7 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                     widget.onRefreshAll();
                   },
                   icon: const Icon(Icons.check_circle_outline, size: 18),
-                  label: const Text('Onayla (+${sub.points} 🪙)'),
+                  label: Text('Onayla (+${sub.points} 🪙)'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: FamTheme.emerald,
                     foregroundColor: Colors.white,

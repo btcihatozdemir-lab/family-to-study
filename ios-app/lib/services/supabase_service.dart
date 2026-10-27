@@ -27,6 +27,7 @@ class SupabaseService {
       StreamController<void>.broadcast();
   static final StreamController<MessageModel> messageReceivedController =
       StreamController<MessageModel>.broadcast();
+  static StreamController<MessageModel> get messageStreamController => messageReceivedController;
 
   static Future<void> init() async {
     await Supabase.initialize(

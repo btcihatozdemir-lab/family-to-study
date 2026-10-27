@@ -52,5 +52,6 @@ class TaskModel {
   bool get isCompleted => status == 'approved';
   bool get isPending => status == 'pending';
   bool get isRejected => status == 'rejected';
+  bool get isRace => isFirstComeRace;
   bool get requiresPhoto => verificationType == 'photo_proof';
 }

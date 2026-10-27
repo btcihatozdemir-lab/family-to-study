@@ -20,6 +20,23 @@ class SessionManager {
   static bool get isStudent => role == 'child';
   static bool get isParent => role == 'parent';
   static bool get isStudying => currentState == 'STUDY_TIME' || currentState == 'ROUTINE_TIME';
+  static bool get isLoggedIn => userId.isNotEmpty;
+  static String get userName => name;
+  static String get familyName => 'Özdemir Ailesi';
+
+  static Future<void> clearSession() async {
+    userId = '';
+    role = 'child';
+    name = 'Öğrenci';
+    currentState = 'FREE_TIME';
+    magicToken = '';
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyUserId);
+    await prefs.remove(_keyRole);
+    await prefs.remove(_keyName);
+    await prefs.remove(_keyCurrentState);
+    await prefs.remove(_keyMagicToken);
+  }
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
