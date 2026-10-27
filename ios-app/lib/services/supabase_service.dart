@@ -965,12 +965,27 @@ class SupabaseService {
       }
 
       await client.from('users').update(updateData).eq('id', studentId);
+      final fresh = await fetchStudentProfile(studentId);
+      if (fresh != null) {
+        studentUpdateController.add(fresh);
+      }
       return true;
     } catch (e) {
       print('[setChildState] Hata: $e');
       return false;
     }
   }
+
+  static Future<bool> setStudentState({
+    required String studentId,
+    required String newState,
+    int? durationMinutes,
+  }) =>
+      setChildState(
+        studentId: studentId,
+        newState: newState,
+        durationMinutes: durationMinutes,
+      );
 
   /// Çocuğun Günlük Kalkanını Güncelle (+1 Kalkan Ekle veya Düşür)
   static Future<bool> updateChildShields(String studentId, int delta) async {

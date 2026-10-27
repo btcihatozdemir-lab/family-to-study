@@ -365,11 +365,11 @@ class _MissionsTabState extends State<MissionsTab> {
                   widget.onRefreshUser?.call();
                 },
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.emeraldAccent.withOpacity(0.5)),
+                  side: BorderSide(color: KidsTheme.emerald.withOpacity(0.5)),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('10 Dk Mola 🔔', style: TextStyle(color: Colors.emeraldAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                child: const Text('10 Dk Mola 🔔', style: TextStyle(color: KidsTheme.emeraldLight, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
           ),

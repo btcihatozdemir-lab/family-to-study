@@ -153,7 +153,7 @@ class _ActiveBreakWidgetState extends State<ActiveBreakWidget> {
         ),
         boxShadow: [
           BoxShadow(
-            color: (isBreakTime ? Colors.emerald : Colors.cyan).withOpacity(0.15),
+            color: (isBreakTime ? KidsTheme.emerald : Colors.cyan).withOpacity(0.15),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -168,7 +168,7 @@ class _ActiveBreakWidgetState extends State<ActiveBreakWidget> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isBreakTime ? Colors.emerald.withOpacity(0.2) : Colors.cyan.withOpacity(0.2),
+                  color: isBreakTime ? KidsTheme.emerald.withOpacity(0.2) : Colors.cyan.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Text(ch.emoji, style: const TextStyle(fontSize: 22)),
@@ -185,7 +185,7 @@ class _ActiveBreakWidgetState extends State<ActiveBreakWidget> {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w900,
-                            color: isBreakTime ? Colors.emeraldAccent : KidsTheme.cyan,
+                            color: isBreakTime ? KidsTheme.emeraldLight : KidsTheme.cyan,
                             letterSpacing: 1.1,
                           ),
                         ),
