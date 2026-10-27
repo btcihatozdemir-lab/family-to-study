@@ -797,17 +797,15 @@ class SupabaseService {
         userNames[u['id'].toString()] = u['name']?.toString() ?? 'Aile Bireyi';
       }
 
-      var query = client
+      // Next.js mantığı: Aile frekansındaki tüm iletişimler
+      final res = await client
           .from('messages')
           .select('*')
-          .eq('family_id', familyId);
+          .eq('family_id', familyId)
+          .order('created_at', ascending: true)
+          .limit(100);
 
-      if (userId != null && userId.isNotEmpty) {
-        query = query.or('receiver_id.eq.$userId,receiver_id.eq.all,sender_id.eq.$userId');
-      }
-
-      final res = await query.order('created_at', ascending: true).limit(50);
-      return res.map((m) {
+      return (res as List).map((m) {
         final sId = m['sender_id']?.toString() ?? '';
         return MessageModel.fromJson(m, fallbackSenderName: userNames[sId]);
       }).toList();
@@ -831,16 +829,61 @@ class SupabaseService {
     String? audioUrl,
   }) async {
     try {
-      await client.from('messages').insert({
-        'family_id': familyId,
-        'sender_id': senderId,
-        'receiver_id': receiverId,
-        'message_type': messageType,
-        'content': content.trim(),
-        'audio_url': audioUrl,
-        'is_read': false,
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-      });
+      final members = await fetchFamilyMembers(familyId);
+      List<String> targetReceiverIds = [];
+
+      if (receiverId == 'all' || receiverId.isEmpty) {
+        // Tüm velilere veya diğer aile bireylerine yayınla (Foreign Key hatasını önlemek için geçerli user id'ler)
+        final parents = members.where((m) => m.id != senderId && m.role == 'parent').map((m) => m.id).toList();
+        if (parents.isNotEmpty) {
+          targetReceiverIds = parents;
+        } else {
+          targetReceiverIds = members.where((m) => m.id != senderId).map((m) => m.id).toList();
+        }
+      } else {
+        // Belirtilen alıcı veritabanında var mı kontrol et
+        final isValid = members.any((m) => m.id == receiverId);
+        if (isValid) {
+          targetReceiverIds = [receiverId];
+        } else {
+          final fallback = members.firstWhere((m) => m.id != senderId, orElse: () => members.first);
+          targetReceiverIds = [fallback.id];
+        }
+      }
+
+      if (targetReceiverIds.isEmpty) {
+        targetReceiverIds = [senderId];
+      }
+
+      for (final recId in targetReceiverIds) {
+        final newId = 'msg-${DateTime.now().millisecondsSinceEpoch}-${recId.split('-').last}';
+        final payload = {
+          'id': newId,
+          'family_id': familyId,
+          'sender_id': senderId,
+          'receiver_id': recId,
+          'message_type': messageType,
+          'content': content.trim(),
+          'audio_url': audioUrl,
+          'is_read': false,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        };
+        await client.from('messages').insert(payload);
+
+        // Canlı akışa da hemen bildir
+        messageStreamController.add(MessageModel(
+          id: newId,
+          familyId: familyId,
+          senderId: senderId,
+          senderName: senderName ?? 'Ben',
+          receiverId: recId,
+          messageType: messageType,
+          content: content.trim(),
+          audioUrl: audioUrl,
+          isRead: false,
+          createdAt: DateTime.now(),
+        ));
+      }
       return true;
     } catch (e) {
       print('[sendMessage] Hata: $e');

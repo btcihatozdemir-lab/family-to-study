@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'services/session_manager.dart';
@@ -97,6 +98,7 @@ class _FamilyOSAppState extends State<FamilyOSApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: isParent ? 'FamilyToStudy Fam' : 'FamilyToStudy Kids',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const AppScrollBehavior(),
       theme: isParent ? FamTheme.themeData : KidsTheme.themeData,
       home: _isLoading
           ? const Scaffold(
@@ -110,4 +112,17 @@ class _FamilyOSAppState extends State<FamilyOSApp> with WidgetsBindingObserver {
               : const KidsAuthScreen(),
     );
   }
+}
+
+/// Web & Masaüstü İçin Mouse / Trackpad Sürükleyerek Kaydırma Desteği
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+  };
 }
