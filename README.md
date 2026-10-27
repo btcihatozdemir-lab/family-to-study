@@ -58,20 +58,36 @@ Proje, GitHub Actions (`.github/workflows/deploy-pwa.yml`) ile `main` dalına ya
 
 ---
 
-## 🍏 Flutter Native iOS Uygulaması (iOS 15.8+ & Sideloadly)
+## 📱 İki Bağımsız Mobil & Web Uygulaması (SOLID: Single Responsibility)
 
-`ios-app/` dizini altında barındırılan Flutter Native uygulaması, hem eski iOS sürümleri (iPhone 6s/7/SE1 - iOS 15.8) hem de güncel iOS (iOS 16/17/18) cihazlar için optimize edilmiştir:
+Ebeveyn ve çocuk cihazlarının ve mağaza paketlerinin birbirinden tamamen izole olması için ekosistem iki bağımsız uygulamaya ayrılmıştır:
 
-1. **Özellikler:**
-   - **7/24 Arka Plan Canlı Tutucu:** APNs ücretli sertifikası olmadan, arka planda sıfır volümlü döngü ile soketleri açık tutar.
-   - **Sessiz Mod Delici Alarm:** `AVAudioSessionCategory.playback` ile sessiz anahtarı kapalı olsa bile sabah alarmlarını yüksek sesle çalar.
-   - **Ayrılma Sensörü (`AppLifecycle`):** Öğrenci ders saatinde uygulamayı alta attığında anında kalkan ihlali yazar ve veliye bildirim fırlatır.
-   - **Wakelock:** Odak saatlerinde ekranın kilitlenmesini önler.
-   - **Kamera & Mikrofon:** QR tarama, sesli DM ve fotoğraf kanıtı izinlerini Native yönetir.
+### 1. 🛡️ FamilyToStudy Fam (Ebeveyn & Veli Portalı)
+- **Giriş Noktası:** `ios-app/lib/main_fam.dart`
+- **Paket Kimliği:** `com.familytostudy.fam`
+- **Uygulama Logosu:** `public/family-logo.png` (Mavi/Altın Ebeveyn Kalkanı)
+- **Giriş Yöntemleri:** Google OAuth Girişi, Aile Kodu & Ebeveyn PIN/Şifre, Yeni Aile Oluşturma Sihirbazı.
+- **Kapsam:** Canlı çocuk kalkan denetimi, anlık uzaktan ekran kilidi, görev atama/onaylama, Adalet Divanı sesli itiraz kararları, çark ödül havuzu yönetimi.
 
-2. **GitHub Actions Otomatik `.IPA` Derleme:**
-   - `.github/workflows/build-ios-ipa.yml` iş akışı macOS üzerinde imzasız `FamilyOS_iOS_Universal.ipa` paketini otomatik derler.
-   - Paketi indirip **Sideloadly** veya **AltStore** ile ücretsiz Apple kimliğinizle iPhone/iPad'inize yükleyebilirsiniz.
+### 2. 🧒 FamilyToStudy Kids (Öğrenci & Çocuk Portalı)
+- **Giriş Noktası:** `ios-app/lib/main_kids.dart`
+- **Paket Kimliği:** `com.familytostudy.kids`
+- **Uygulama Logosu:** `public/kids-logo.png` (Kozmik Gezegen & Yıldız)
+- **Giriş Yöntemleri:** Aile Kodu + Öğrenci Profil Seçimi + PIN veya 6 Haneli Eşleştirme Kodu (Örn: `889-891`). Ebeveyn giriş ve yönetim ekranları bu uygulamada bulunmaz.
+- **Kapsam:** Oyunlaştırılmış ders kronometresi, rozetler, günlük çarkıfelek, Bas-Konuş telsiz, aktif molalar, donanımsal odak modu kalkanı ve uygulama küçültme/arka plana atma ihlal sensörü.
+
+---
+
+## 🍏 Flutter Native iOS & Web Derlemeleri (Fam & Kids)
+
+`ios-app/` dizini altında barındırılan Flutter uygulamaları hem ayrı ayrı hem de test portalı üzerinden derlenebilir:
+
+1. **Bağımsız Derlemeler:**
+   - **Fam Uygulaması:** `flutter run -t lib/main_fam.dart` (veya `flutter build ios -t lib/main_fam.dart`)
+   - **Kids Uygulaması:** `flutter run -t lib/main_kids.dart` (veya `flutter build ios -t lib/main_kids.dart`)
+2. **GitHub Actions Otomasyonu:**
+   - `.github/workflows/build-flutter-web.yml`: Hem `familytostudy-kids-web` hem `familytostudy-fam-web` paketlerini ayrı ayrı derleyip yayınlar.
+   - `.github/workflows/build-ios-ipa.yml`: `FamilyToStudy_Kids.ipa` ve `FamilyToStudy_Fam.ipa` olmak üzere iki bağımsız `.ipa` üretir. Sideloadly veya AltStore ile doğrudan cihaza yüklenebilir.
 
 ---
 

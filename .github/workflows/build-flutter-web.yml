@@ -1,4 +1,4 @@
-name: Build Flutter Web App
+name: Build Flutter Web Apps (Fam & Kids)
 
 on:
   push:
@@ -29,12 +29,36 @@ jobs:
           cd ios-app
           flutter pub get
 
-      - name: Build Flutter Web (HTML & CanvasKit)
+      - name: Build FamilyToStudy Kids Web
         run: |
           cd ios-app
-          flutter build web --release --base-href "/"
+          flutter build web --release -t lib/main_kids.dart --base-href "/" -o build/web_kids
 
-      - name: Upload Flutter Web Artifact
+      - name: Build FamilyToStudy Fam Web
+        run: |
+          cd ios-app
+          flutter build web --release -t lib/main_fam.dart --base-href "/" -o build/web_fam
+
+      - name: Build Ecosystem Portal Web
+        run: |
+          cd ios-app
+          flutter build web --release -t lib/main.dart --base-href "/" -o build/web
+
+      - name: Upload Kids Web Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: familytostudy-kids-web
+          path: ios-app/build/web_kids
+          if-no-files-found: error
+
+      - name: Upload Fam Web Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: familytostudy-fam-web
+          path: ios-app/build/web_fam
+          if-no-files-found: error
+
+      - name: Upload Combined Web Artifact
         uses: actions/upload-artifact@v4
         with:
           name: flutter-web-bundle

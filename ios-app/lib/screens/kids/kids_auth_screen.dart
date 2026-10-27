@@ -3,7 +3,6 @@ import '../../theme/kids_theme.dart';
 import '../../services/supabase_service.dart';
 import '../../models/user_model.dart';
 import 'kids_home_screen.dart';
-import '../fam/fam_home_screen.dart';
 
 class KidsAuthScreen extends StatefulWidget {
   const KidsAuthScreen({super.key});
@@ -20,8 +19,8 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
   bool _isFamilyLoading = false;
   String? _familyError;
   Map<String, dynamic>? _foundFamily;
-  List<UserModel> _familyMembers = [];
-  UserModel? _selectedMember;
+  List<UserModel> _students = [];
+  UserModel? _selectedStudent;
   final TextEditingController _memberPinController = TextEditingController();
 
   // Doğrudan Kullanıcı Adı / Kod Sekmesi Durumları
@@ -33,7 +32,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     // Açılışta varsayılan aile kodunu otomatik sorgula
     _lookupFamily();
   }
@@ -48,7 +47,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
     super.dispose();
   }
 
-  /// 1. Aile Kodu Sorgulama (Örn: FAMZDE-2026)
+  /// 1. Aile Kodu Sorgulama (Örn: FAMZDE-2026) -> SADECE Öğrencileri Listele
   Future<void> _lookupFamily() async {
     final code = _familyCodeController.text.trim();
     if (code.isEmpty) {
@@ -59,34 +58,36 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
     setState(() {
       _isFamilyLoading = true;
       _familyError = null;
-      _selectedMember = null;
+      _selectedStudent = null;
     });
 
     final fam = await SupabaseService.fetchFamilyByCode(code);
     if (fam != null) {
       final members = await SupabaseService.fetchFamilyMembers(fam['id'].toString());
+      // SADECE Öğrencileri / Çocukları Filtrele (SOLID: Single Responsibility)
+      final studentMembers = members.where((m) => m.role != 'parent').toList();
       if (mounted) {
         setState(() {
           _foundFamily = fam;
-          _familyMembers = members;
+          _students = studentMembers;
           _isFamilyLoading = false;
         });
       }
     } else {
       if (mounted) {
         setState(() {
-          _familyError = 'Bu koda ait aile bulunamadı. Lütfen ebeveyn panelinizdeki aile kodunu kontrol edin.';
+          _familyError = 'Bu koda ait aile bulunamadı. Lütfen aile kodunuzu kontrol edin.';
           _foundFamily = null;
-          _familyMembers = [];
+          _students = [];
           _isFamilyLoading = false;
         });
       }
     }
   }
 
-  /// 2. Birey Seçildiğinde PIN Doğrulama
+  /// 2. Öğrenci Seçildiğinde PIN Doğrulama
   Future<void> _handleMemberPinLogin() async {
-    if (_selectedMember == null) return;
+    if (_selectedStudent == null) return;
     final pin = _memberPinController.text.trim();
     if (pin.isEmpty) {
       setState(() => _familyError = 'Lütfen PIN / şifrenizi girin.');
@@ -99,7 +100,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
     });
 
     final user = await SupabaseService.loginStudentWithPin(
-      studentId: _selectedMember!.id,
+      studentId: _selectedStudent!.id,
       pin: pin,
     );
 
@@ -146,7 +147,13 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
     setState(() => _isDirectLoading = false);
 
     if (user != null && mounted) {
-      _navigateHome(user);
+      if (user.role == 'parent') {
+        setState(() {
+          _directError = 'Bu profil bir ebeveyne ait. Kids uygulamasına yalnızca öğrenciler giriş yapabilir.';
+        });
+      } else {
+        _navigateHome(user);
+      }
     } else {
       setState(() {
         _directError = 'Giriş başarısız. Kullanıcı adı, şifre veya eşleştirme kodunu kontrol edin.';
@@ -154,39 +161,11 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
     }
   }
 
-  /// Hızlı Ebeveyn Girişi (Tek Tıkla Giriş)
-  Future<void> _handleQuickParentLogin(UserModel parent, [String pin = '1234']) async {
-    setState(() {
-      _isFamilyLoading = true;
-      _familyError = null;
-    });
-
-    final user = await SupabaseService.loginStudentWithPin(
-      studentId: parent.id,
-      pin: pin,
-    );
-
-    setState(() => _isFamilyLoading = false);
-
-    if (user != null && mounted) {
-      _navigateHome(user);
-    } else {
-      setState(() => _familyError = 'Ebeveyn girişi başarısız. Lütfen şifrenizi kontrol edin.');
-    }
-  }
-
   void _navigateHome(UserModel user) {
-    if (user.role == 'parent') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const FamHomeScreen()),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => KidsHomeScreen(initialStudent: user)),
-      );
-    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => KidsHomeScreen(initialStudent: user)),
+    );
   }
 
   @override
@@ -204,13 +183,9 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                 children: [
                   // Logo ve Başlık
                   _buildBrandHeader(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
-                  // Ebeveyn Hızlı Geçiş Bannerı (Göz Alıcı Vurgu)
-                  _buildParentQuickSwitchBanner(),
-                  const SizedBox(height: 16),
-
-                  // Sekme Başlıkları (3 Sekme: Öğrenci, Ebeveyn, Kod)
+                  // Sekme Başlıkları (2 Sekme: Öğrenci, Kod)
                   Container(
                     decoration: BoxDecoration(
                       color: KidsTheme.surface,
@@ -228,15 +203,11 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                       dividerColor: Colors.transparent,
                       labelColor: Colors.white,
                       unselectedLabelColor: KidsTheme.textMuted,
-                      labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                      labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                       tabs: const [
                         Tab(
                           icon: Icon(Icons.school_rounded, size: 18),
-                          text: '🧒 Öğrenci',
-                        ),
-                        Tab(
-                          icon: Icon(Icons.shield_rounded, size: 18),
-                          text: '🛡️ Ebeveyn',
+                          text: '🧒 Öğrenci Profili',
                         ),
                         Tab(
                           icon: Icon(Icons.key_rounded, size: 18),
@@ -251,12 +222,11 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                   AnimatedSize(
                     duration: const Duration(milliseconds: 300),
                     child: SizedBox(
-                      height: 460,
+                      height: 440,
                       child: TabBarView(
                         controller: _tabController,
                         children: [
                           _buildFamilyProfilesTab(),
-                          _buildParentAuthTab(),
                           _buildDirectLoginTab(),
                         ],
                       ),
@@ -267,73 +237,6 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildParentQuickSwitchBanner() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF4361EE).withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF4361EE).withOpacity(0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4361EE).withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Text('🛡️', style: TextStyle(fontSize: 22)),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ebeveyn / Veli Misiniz?',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Fam Yönetim Paneline bağlanın',
-                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              _tabController.animateTo(1);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4361EE),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Ebeveyn Girişi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-        ],
       ),
     );
   }
@@ -369,7 +272,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
         ),
         const SizedBox(height: 12),
         const Text(
-          'FamilyToStudy',
+          'FamilyToStudy Kids',
           style: TextStyle(
             color: KidsTheme.textWhite,
             fontSize: 24,
@@ -378,11 +281,11 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          'Aile İçi Oyunlaştırma & Güvenli Giriş',
+        const Text(
+          'Öğrenci Macera, Görev & Odak Portalı 🚀',
           style: TextStyle(
             color: KidsTheme.textMuted,
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -390,7 +293,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
     );
   }
 
-  /// 1. Sekme: Aile Kodu -> Çocuk Profilleri -> PIN
+  /// 1. Sekme: Aile Kodu -> Öğrenci Profilleri -> PIN
   Widget _buildFamilyProfilesTab() {
     return SingleChildScrollView(
       child: Column(
@@ -453,101 +356,169 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
             const SizedBox(height: 12),
           ],
 
-          // Aile Bulunduysa Bireyleri Listele
+          // Bulunan Aile ve Öğrenci Kartları
           if (_foundFamily != null) ...[
-            Text(
-              '🏡 ${_foundFamily!['name']} — Kim Giriş Yapıyor?',
-              style: const TextStyle(
-                color: KidsTheme.cyanSoft,
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: KidsTheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: KidsTheme.gold.withOpacity(0.3)),
               ),
-            ),
-            const SizedBox(height: 10),
-
-            // Üye Kartları (Yatay veya Grid)
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: _familyMembers.map((member) {
-                final isSelected = _selectedMember?.id == member.id;
-                final isChild = member.role == 'child';
-
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedMember = member;
-                      _memberPinController.clear();
-                      _familyError = null;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    width: 135,
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? KidsTheme.primary.withOpacity(0.25)
-                          : KidsTheme.surface,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: isSelected ? KidsTheme.primaryLight : Colors.white.withOpacity(0.08),
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
+              child: Row(
+                children: [
+                  const Text('🏰', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 10),
+                  Expanded(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: isChild ? KidsTheme.emerald.withOpacity(0.2) : Colors.purple.withOpacity(0.2),
-                          child: Text(
-                            member.avatarEmoji.isNotEmpty ? member.avatarEmoji : (isChild ? (member.gender == 'female' ? '👧' : '👦') : (member.gender == 'female' ? '👩' : '👨')),
-                            style: const TextStyle(fontSize: 22),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
                         Text(
-                          member.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : KidsTheme.textWhite,
+                          _foundFamily!['name']?.toString() ?? 'Aile Akademisi',
+                          style: const TextStyle(
+                            color: Colors.white,
                             fontWeight: FontWeight.w800,
-                            fontSize: 13,
+                            fontSize: 14,
                           ),
                         ),
                         Text(
-                          member.isPrimaryAdmin
-                              ? '${member.roleTitle} (Yönetici) 👑'
-                              : member.roleTitle,
-                          style: TextStyle(
-                            color: isChild ? KidsTheme.emerald : KidsTheme.primaryLight,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          '${_students.length} Öğrenci Kayıtlı',
+                          style: const TextStyle(color: KidsTheme.textMuted, fontSize: 11),
                         ),
                       ],
                     ),
                   ),
-                );
-              }).toList(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: KidsTheme.gold.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _foundFamily!['family_code']?.toString() ?? '',
+                      style: const TextStyle(
+                        color: KidsTheme.goldLight,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // Seçilen Birey İçin PIN Girişi
-            if (_selectedMember != null) ...[
+            if (_students.isEmpty && !_isFamilyLoading)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: KidsTheme.cardDecoration(),
+                child: const Text(
+                  'Bu ailede kayıtlı öğrenci bulunamadı. Lütfen ebeveyninizden Fam panelinden sizi eklemesini isteyin.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: KidsTheme.textMuted, fontSize: 12),
+                ),
+              )
+            else ...[
+              const Text(
+                'Profilini Seç ve Göreve Başla 👇',
+                style: TextStyle(
+                  color: KidsTheme.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Öğrenci Kartları (SADECE Öğrenciler)
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _students.map((student) {
+                  final isSelected = _selectedStudent?.id == student.id;
+
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedStudent = student;
+                        _memberPinController.text = '1234';
+                        _familyError = null;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 130,
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? KidsTheme.primary.withOpacity(0.3) : KidsTheme.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? KidsTheme.primaryLight : Colors.white.withOpacity(0.08),
+                          width: isSelected ? 2 : 1,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: KidsTheme.primary.withOpacity(0.35),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 4),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircleAvatar(
+                            radius: 26,
+                            backgroundColor: KidsTheme.primary.withOpacity(0.2),
+                            child: Text(
+                              student.avatarEmoji.isNotEmpty ? student.avatarEmoji : '🧒',
+                              style: const TextStyle(fontSize: 26),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            student.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : KidsTheme.textLight,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '🌟 ${student.points} XP',
+                            style: const TextStyle(
+                              color: KidsTheme.goldLight,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+
+            // Seçilen Öğrenci İçin PIN Giriş Alanı
+            if (_selectedStudent != null) ...[
+              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: KidsTheme.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: KidsTheme.gold.withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: KidsTheme.primaryLight.withOpacity(0.4)),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      '🔑 ${_selectedMember!.name} için PIN / Şifre:',
+                      '🔑 ${_selectedStudent!.name} için PIN / Şifre:',
                       style: const TextStyle(
                         color: KidsTheme.goldLight,
                         fontWeight: FontWeight.w800,
@@ -595,7 +566,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                               child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
                             )
                           : Text(
-                              '${_selectedMember!.name} Olarak Başla 🚀',
+                              '${_selectedStudent!.name} Olarak Başla 🚀',
                               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
                             ),
                     ),
@@ -677,7 +648,7 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
                 : const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Güvenli Giriş Yap', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                      Text('Öğrenci Girişi Yap', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
                       SizedBox(width: 8),
                       Icon(Icons.arrow_forward_rounded, size: 18),
                     ],
@@ -706,255 +677,6 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
               style: const TextStyle(color: KidsTheme.rose, fontSize: 11, fontWeight: FontWeight.w700),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  /// Ebeveyn / Veli Yönetim Giriş Sekmesi
-  Widget _buildParentAuthTab() {
-    final parents = _familyMembers.where((m) => m.role == 'parent').toList();
-
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF4361EE).withOpacity(0.4)),
-            ),
-            child: const Row(
-              children: [
-                Text('🛡️', style: TextStyle(fontSize: 24)),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Ebeveyn Komuta Paneli (Fam)',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Giriş yapmak istediğiniz ebeveyn profilini seçin.',
-                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Google ile Ebeveyn Girişi Butonu
-          ElevatedButton(
-            onPressed: () async {
-              setState(() {
-                _isFamilyLoading = true;
-                _familyError = null;
-              });
-              final ok = await SupabaseService.signInWithGoogle();
-              setState(() => _isFamilyLoading = false);
-              if (!ok && mounted) {
-                setState(() => _familyError = 'Google ile giriş başlatılamadı veya iptal edildi.');
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF0F172A),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 4,
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('🌐', style: TextStyle(fontSize: 18)),
-                SizedBox(width: 10),
-                Text(
-                  'Google ile Ebeveyn Girişi Yap',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F172A)),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          Row(
-            children: [
-              Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text('veya Kayıtlı Profil Seç', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11)),
-              ),
-              Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          if (parents.isEmpty && _isFamilyLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(color: Color(0xFF4361EE)),
-              ),
-            )
-          else if (parents.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: KidsTheme.cardDecoration(),
-              child: const Text(
-                'Bu ailede kayıtlı ebeveyn bulunamadı.',
-                style: TextStyle(color: KidsTheme.textMuted, fontSize: 12),
-              ),
-            )
-          else ...[
-            // Ebeveyn Profil Kartları
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: parents.map((parent) {
-                final isSelected = _selectedMember?.id == parent.id;
-
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedMember = parent;
-                      _memberPinController.text = '1234';
-                      _familyError = null;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    width: 140,
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF4361EE).withOpacity(0.25) : KidsTheme.surface,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: isSelected ? const Color(0xFF4361EE) : Colors.white.withOpacity(0.1),
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundColor: const Color(0xFF4361EE).withOpacity(0.2),
-                          child: Text(
-                            parent.avatarEmoji.isNotEmpty
-                                ? parent.avatarEmoji
-                                : (parent.gender == 'female' ? '👩‍💼' : '👨‍💼'),
-                            style: const TextStyle(fontSize: 24),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          parent.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                        Text(
-                          parent.isPrimaryAdmin ? '${parent.roleTitle} 👑' : parent.roleTitle,
-                          style: const TextStyle(
-                            color: Color(0xFF4CC9F0),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-
-            // PIN Kutusu
-            Container(
-              decoration: KidsTheme.cardDecoration(borderColor: const Color(0xFF4361EE).withOpacity(0.4)),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-              child: TextField(
-                controller: _memberPinController,
-                obscureText: true,
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                decoration: InputDecoration(
-                  hintText: '${_selectedMember?.name ?? "Ebeveyn"} PIN / Şifresi',
-                  hintStyle: const TextStyle(color: KidsTheme.textMuted, fontSize: 12),
-                  border: InputBorder.none,
-                  prefixIcon: const Icon(Icons.lock_rounded, color: Color(0xFF4CC9F0), size: 20),
-                ),
-                onSubmitted: (_) {
-                  if (_selectedMember != null) {
-                    _handleMemberPinLogin();
-                  } else if (parents.isNotEmpty) {
-                    _handleQuickParentLogin(parents.first, _memberPinController.text.trim());
-                  }
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            if (_familyError != null) ...[
-              _buildErrorBox(_familyError!),
-              const SizedBox(height: 12),
-            ],
-
-            ElevatedButton.icon(
-              onPressed: () {
-                if (_selectedMember != null) {
-                  _handleMemberPinLogin();
-                } else if (parents.isNotEmpty) {
-                  _handleQuickParentLogin(parents.first, _memberPinController.text.trim());
-                }
-              },
-              icon: const Text('🛡️', style: TextStyle(fontSize: 18)),
-              label: Text(
-                _selectedMember != null
-                    ? '${_selectedMember!.name} Olarak Paneli Aç'
-                    : 'Ebeveyn Paneline Giriş Yap',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4361EE),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Hızlı 1-Tık Kurucu Girişi Butonu
-            OutlinedButton.icon(
-              onPressed: () {
-                final primary = parents.firstWhere((p) => p.isPrimaryAdmin, orElse: () => parents.first);
-                _handleQuickParentLogin(primary, '1234');
-              },
-              icon: const Text('👑', style: TextStyle(fontSize: 16)),
-              label: const Text(
-                'Hızlı Giriş: Cihat Özdemir (Kurucu Baba)',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: KidsTheme.gold,
-                side: BorderSide(color: KidsTheme.gold.withOpacity(0.5)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-            ),
-          ],
         ],
       ),
     );

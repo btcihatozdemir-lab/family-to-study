@@ -1,4 +1,4 @@
-name: 'Build Flutter iOS Native App (IPA)'
+name: 'Build Flutter iOS Native Apps (Fam & Kids IPAs)'
 
 on:
   push:
@@ -55,33 +55,46 @@ jobs:
           cd ios
           pod install --repo-update
 
-      - name: Build iOS Release (Unsigned for Sideloadly)
+      - name: Build FamilyToStudy Kids iOS Release
         run: |
           cd ios-app
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign -t lib/main_kids.dart
+          mkdir -p Payload_Kids
+          cp -r build/ios/iphoneos/Runner.app Payload_Kids/
+          zip -r -q FamilyToStudy_Kids.ipa Payload_Kids
+          ls -lh FamilyToStudy_Kids.ipa
 
-      - name: Package Runner.app into Standard .IPA (Payload format)
+      - name: Build FamilyToStudy Fam iOS Release
         run: |
           cd ios-app
-          mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r -q FamilyOS_iOS_Universal.ipa Payload
-          ls -lh FamilyOS_iOS_Universal.ipa
-          echo "FamilyOS_iOS_Universal.ipa paketi başarıyla üretildi!"
+          flutter build ios --release --no-codesign -t lib/main_fam.dart
+          mkdir -p Payload_Fam
+          cp -r build/ios/iphoneos/Runner.app Payload_Fam/
+          zip -r -q FamilyToStudy_Fam.ipa Payload_Fam
+          ls -lh FamilyToStudy_Fam.ipa
 
-      - name: Upload .IPA as Workflow Artifact
+      - name: Upload Kids .IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FamilyOS_iOS_Universal_ipa
-          path: ios-app/FamilyOS_iOS_Universal.ipa
+          name: FamilyToStudy_Kids_ipa
+          path: ios-app/FamilyToStudy_Kids.ipa
+          if-no-files-found: error
+
+      - name: Upload Fam .IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FamilyToStudy_Fam_ipa
+          path: ios-app/FamilyToStudy_Fam.ipa
           if-no-files-found: error
 
       - name: Publish to GitHub Releases (On Version Tag)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: ios-app/FamilyOS_iOS_Universal.ipa
-          name: FamilyOS Release ${{ github.ref_name }}
+          files: |
+            ios-app/FamilyToStudy_Kids.ipa
+            ios-app/FamilyToStudy_Fam.ipa
+          name: FamilyToStudy Release ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: true

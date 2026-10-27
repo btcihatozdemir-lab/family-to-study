@@ -13,7 +13,6 @@ import '../../widgets/convex_bottom_bar.dart';
 import 'overlays/focus_lock_overlay.dart';
 import 'overlays/morning_alarm_overlay.dart';
 import 'kids_auth_screen.dart';
-import '../fam/fam_home_screen.dart';
 
 class KidsHomeScreen extends StatefulWidget {
   final UserModel initialStudent;
@@ -93,88 +92,6 @@ class _KidsHomeScreenState extends State<KidsHomeScreen> {
         );
       }
     }
-  }
-
-  void _showParentSwitchDialog() {
-    final pinController = TextEditingController(text: '1234');
-    String? error;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDlgState) => AlertDialog(
-          backgroundColor: const Color(0xFF1C2541),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-          title: const Row(
-            children: [
-              Text('🛡️', style: TextStyle(fontSize: 22)),
-              SizedBox(width: 8),
-              Text('Ebeveyn Doğrulaması', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Ebeveyn Komuta Paneline (Fam) geçmek için lütfen ebeveyn PIN / şifrenizi girin.',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: pinController,
-                obscureText: true,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white, fontSize: 16, letterSpacing: 3),
-                decoration: InputDecoration(
-                  hintText: 'PIN (Örn: 1234)',
-                  hintStyle: const TextStyle(color: Colors.white24, letterSpacing: 0),
-                  filled: true,
-                  fillColor: Colors.black26,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                  errorText: error,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('İptal', style: TextStyle(color: Colors.white60)),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final pin = pinController.text.trim();
-                final members = await SupabaseService.fetchFamilyMembers(_student.familyId);
-                final parent = members.firstWhere(
-                  (m) => m.role == 'parent' && (m.isPrimaryAdmin || m.name.contains('Cihat')),
-                  orElse: () => members.firstWhere((m) => m.role == 'parent', orElse: () => _student),
-                );
-
-                final ok = await SupabaseService.loginStudentWithPin(
-                  studentId: parent.id,
-                  pin: pin.isNotEmpty ? pin : '1234',
-                );
-
-                if (ok != null && mounted) {
-                  Navigator.pop(ctx);
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const FamHomeScreen()),
-                  );
-                } else {
-                  setDlgState(() => error = 'Hatalı PIN!');
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4361EE),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Paneli Aç 🛡️', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
@@ -379,23 +296,7 @@ class _KidsHomeScreenState extends State<KidsHomeScreen> {
                 ],
               ),
 
-              const SizedBox(width: 6),
-              // Ebeveyn Moduna Geçiş Butonu
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4361EE).withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF4361EE).withOpacity(0.4)),
-                ),
-                child: IconButton(
-                  icon: const Text('🛡️', style: TextStyle(fontSize: 16)),
-                  tooltip: 'Ebeveyn Moduna Geç (Fam)',
-                  onPressed: _showParentSwitchDialog,
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints(),
-                ),
-              ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 8),
               // Menu / Logout button
               IconButton(
                 icon: const Icon(Icons.logout_rounded, color: KidsTheme.textMuted, size: 20),

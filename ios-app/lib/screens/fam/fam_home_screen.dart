@@ -6,7 +6,7 @@ import 'tabs/approvals_tab.dart';
 import 'tabs/task_hub_tab.dart';
 import 'tabs/justice_walkie_tab.dart';
 import 'tabs/family_settings_tab.dart';
-import '../kids/kids_auth_screen.dart';
+import 'fam_auth_screen.dart';
 
 class FamHomeScreen extends StatefulWidget {
   const FamHomeScreen({super.key});
@@ -51,7 +51,7 @@ class _FamHomeScreenState extends State<FamHomeScreen> {
       await SessionManager.clearSession();
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const KidsAuthScreen()),
+          MaterialPageRoute(builder: (_) => const FamAuthScreen()),
         );
       }
     }
