@@ -47,6 +47,15 @@ jobs:
           
           # Ensure iOS 15.0 minimum deployment target across all Xcode configurations
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj 2>/dev/null || true
+          
+          # Inject dummy Development Team & disable code signing for unsigned IPA generation
+          sed -i '' 's/DevelopmentTeam = "";/DevelopmentTeam = "9AA9AA9AA9";/g' ios/Runner.xcodeproj/project.pbxproj 2>/dev/null || true
+          sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = 9AA9AA9AA9;/g' ios/Runner.xcodeproj/project.pbxproj 2>/dev/null || true
+          
+          echo "CODE_SIGNING_ALLOWED = NO" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGNING_REQUIRED = NO" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGN_IDENTITY = " >> ios/Flutter/Release.xcconfig
+          echo "DEVELOPMENT_TEAM = 9AA9AA9AA9" >> ios/Flutter/Release.xcconfig
 
       - name: Install Dependencies and CocoaPods
         run: |
