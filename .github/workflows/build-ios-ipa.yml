@@ -55,36 +55,36 @@ jobs:
           cd ios
           pod install --repo-update
 
-      - name: Build FamilyToStudy Kids iOS Release
+      - name: Build FamilyToStudy Kids iOS 15.8+ Release (Unsigned)
         run: |
           cd ios-app
           flutter build ios --release --no-codesign -t lib/main_kids.dart
           mkdir -p Payload_Kids
           cp -r build/ios/iphoneos/Runner.app Payload_Kids/
-          zip -r -q FamilyToStudy_Kids.ipa Payload_Kids
-          ls -lh FamilyToStudy_Kids.ipa
+          zip -r -q FamilyToStudy_Kids_iOS15.ipa Payload_Kids
+          ls -lh FamilyToStudy_Kids_iOS15.ipa
 
-      - name: Build FamilyToStudy Fam iOS Release
+      - name: Build FamilyToStudy Fam Modern iOS Release (Unsigned)
         run: |
           cd ios-app
           flutter build ios --release --no-codesign -t lib/main_fam.dart
           mkdir -p Payload_Fam
           cp -r build/ios/iphoneos/Runner.app Payload_Fam/
-          zip -r -q FamilyToStudy_Fam.ipa Payload_Fam
-          ls -lh FamilyToStudy_Fam.ipa
+          zip -r -q FamilyToStudy_Fam_iOS.ipa Payload_Fam
+          ls -lh FamilyToStudy_Fam_iOS.ipa
 
-      - name: Upload Kids .IPA Artifact
+      - name: Upload Kids iOS 15.8+ .IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FamilyToStudy_Kids_ipa
-          path: ios-app/FamilyToStudy_Kids.ipa
+          name: FamilyToStudy_Kids_iOS15_ipa
+          path: ios-app/FamilyToStudy_Kids_iOS15.ipa
           if-no-files-found: error
 
-      - name: Upload Fam .IPA Artifact
+      - name: Upload Fam iOS .IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FamilyToStudy_Fam_ipa
-          path: ios-app/FamilyToStudy_Fam.ipa
+          name: FamilyToStudy_Fam_iOS_ipa
+          path: ios-app/FamilyToStudy_Fam_iOS.ipa
           if-no-files-found: error
 
       - name: Publish to GitHub Releases (On Version Tag)
@@ -92,8 +92,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ios-app/FamilyToStudy_Kids.ipa
-            ios-app/FamilyToStudy_Fam.ipa
+            ios-app/FamilyToStudy_Kids_iOS15.ipa
+            ios-app/FamilyToStudy_Fam_iOS.ipa
           name: FamilyToStudy Release ${{ github.ref_name }}
           draft: false
           prerelease: false

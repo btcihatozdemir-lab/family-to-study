@@ -17,7 +17,7 @@ FamilyToStudy; çocukların günlük rutinlerini, ödevlerini ve sorumlulukları
 
 1. **Frontend PWA (Next.js 14, Tailwind CSS, Framer Motion, Web Audio API):**
    - GitHub Pages üzerinde statik (`output: 'export'`) olarak sunulur.
-   - iOS 16.4+ ve Android Ana Ekran PWA kurulumu, Bas-Konuş Telsiz DM, Aktif Mola Ruleti, Adalet Divanı Sesli İtirazı, Haftalık Pazar Röportajı ve Fotoğraf/QR Kanıt doğrulama.
+   - iOS 15.8+ Safari PWA ve Native webview kurulumu, Bas-Konuş Telsiz DM, Aktif Mola Ruleti, Adalet Divanı Sesli İtirazı, Haftalık Pazar Röportajı ve Fotoğraf/QR Kanıt doğrulama.
 2. **Backend & Realtime (Supabase PostgreSQL, RPC & Storage):**
    - Atomik kalkan kırma, ilk kapar yarış görevleri kilitlenmesi, uzaktan ekran görüntüsü ve otomatik güncellemeler.
 3. **Windows Masaüstü Endpoint Ajanı (`windows-agent/` - Python, PyQt6, win32gui, pycaw):**
