@@ -30,6 +30,7 @@ class KidsTheme {
 
   // Metin renkleri
   static const Color textWhite = Color(0xFFF8FAFC);
+  static const Color textLight = Color(0xFFCBD5E1);
   static const Color textSecondary = Color(0xFFCBD5E1);
   static const Color textMuted = Color(0xFF94A3B8);
 
