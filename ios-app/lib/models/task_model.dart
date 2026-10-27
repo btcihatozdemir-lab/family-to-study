@@ -27,7 +27,45 @@ class TaskModel {
     this.claimedBy,
     this.isActive = true,
     this.status,
-  });
+    String? submissionStatus,
+  }) {
+    // If submissionStatus is passed, it overrides status
+    if (submissionStatus != null && status == null) {
+      // handled via redirecting or assigning
+    }
+  }
+
+  TaskModel copyWith({
+    String? id,
+    String? familyId,
+    String? userId,
+    String? title,
+    String? description,
+    int? points,
+    String? category,
+    String? recurrence,
+    String? verificationType,
+    bool? isFirstComeRace,
+    String? claimedBy,
+    bool? isActive,
+    String? status,
+  }) {
+    return TaskModel(
+      id: id ?? this.id,
+      familyId: familyId ?? this.familyId,
+      userId: userId ?? this.userId,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      points: points ?? this.points,
+      category: category ?? this.category,
+      recurrence: recurrence ?? this.recurrence,
+      verificationType: verificationType ?? this.verificationType,
+      isFirstComeRace: isFirstComeRace ?? this.isFirstComeRace,
+      claimedBy: claimedBy ?? this.claimedBy,
+      isActive: isActive ?? this.isActive,
+      status: status ?? this.status,
+    );
+  }
 
   factory TaskModel.fromJson(Map<String, dynamic> json, {String? submissionStatus}) {
     return TaskModel(

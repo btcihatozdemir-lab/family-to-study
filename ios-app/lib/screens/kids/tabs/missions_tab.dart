@@ -114,18 +114,7 @@ class _MissionsTabState extends State<MissionsTab> {
       setState(() {
         final idx = _tasks.indexWhere((t) => t.id == task.id);
         if (idx != -1) {
-          _tasks[idx] = TaskModel(
-            id: task.id,
-            familyId: task.familyId,
-            title: task.title,
-            description: task.description,
-            points: task.points,
-            category: task.category,
-            requiresPhoto: task.requiresPhoto,
-            isFirstComeRace: task.isFirstComeRace,
-            claimedBy: task.claimedBy,
-            submissionStatus: 'pending',
-          );
+          _tasks[idx] = task.copyWith(status: 'pending');
         }
       });
 
