@@ -4,6 +4,7 @@ class AppealModel {
   final String studentId;
   final String studentName;
   final String reasonText;
+  final String? audioUrl;
   final String status;
   final DateTime createdAt;
 
@@ -13,6 +14,7 @@ class AppealModel {
     required this.studentId,
     required this.studentName,
     required this.reasonText,
+    this.audioUrl,
     required this.status,
     required this.createdAt,
   });
@@ -31,6 +33,7 @@ class AppealModel {
       studentId: json['user_id']?.toString() ?? '',
       studentName: json['student_name']?.toString() ?? studentName,
       reasonText: json['reason_text']?.toString() ?? 'Gerekçe belirtilmedi.',
+      audioUrl: json['audio_url']?.toString(),
       status: json['status']?.toString() ?? 'pending',
       createdAt: parsedDate,
     );

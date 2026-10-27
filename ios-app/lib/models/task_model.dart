@@ -91,6 +91,7 @@ class TaskModel {
   bool get isPending => status == 'pending';
   bool get isRejected => status == 'rejected';
   bool get isRace => isFirstComeRace;
+  String? get assignedTo => userId;
   bool get requiresPhoto =>
       verificationType == 'photo_proof' ||
       verificationType == 'photo_optional' ||

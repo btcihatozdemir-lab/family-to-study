@@ -12,6 +12,7 @@ class FamTheme {
   static const Color primaryLight = Color(0xFF4CC9F0);
   static const Color secondary = Color(0xFF7209B7); // Mor / Kraliyet
   static const Color gold = Color(0xFFF59E0B); // Altın Puan & Hazine
+  static const Color goldLight = Color(0xFFFBBF24); // Açık Altın
   static const Color emerald = Color(0xFF10B981); // Onay & Başarı
   static const Color rose = Color(0xFFF72585); // Alarm & İhlal
   static const Color cyan = Color(0xFF4CC9F0); // Odak / Canlı Durum
