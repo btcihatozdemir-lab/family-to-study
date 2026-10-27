@@ -1,0 +1,42 @@
+name: Build Flutter Web App
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'ios-app/**'
+      - '.github/workflows/build-flutter-web.yml'
+  workflow_dispatch:
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter Dependencies
+        run: |
+          cd ios-app
+          flutter pub get
+
+      - name: Build Flutter Web (HTML & CanvasKit)
+        run: |
+          cd ios-app
+          flutter build web --release --base-href "/"
+
+      - name: Upload Flutter Web Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-web-bundle
+          path: ios-app/build/web
+          if-no-files-found: error
