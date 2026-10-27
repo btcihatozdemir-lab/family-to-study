@@ -6,8 +6,10 @@ import 'services/audio_keep_alive_service.dart';
 import 'services/supabase_service.dart';
 import 'models/user_model.dart';
 import 'theme/kids_theme.dart';
+import 'theme/fam_theme.dart';
 import 'screens/kids/kids_auth_screen.dart';
 import 'screens/kids/kids_home_screen.dart';
+import 'screens/fam/fam_home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,10 +92,12 @@ class _FamilyOSAppState extends State<FamilyOSApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final bool isParent = _student?.role == 'parent' || SessionManager.isParent;
+
     return MaterialApp(
-      title: 'FamilyToStudy Kids',
+      title: isParent ? 'FamilyToStudy Fam' : 'FamilyToStudy Kids',
       debugShowCheckedModeBanner: false,
-      theme: KidsTheme.themeData,
+      theme: isParent ? FamTheme.themeData : KidsTheme.themeData,
       home: _isLoading
           ? const Scaffold(
               backgroundColor: KidsTheme.bgMidnight,
@@ -102,7 +106,7 @@ class _FamilyOSAppState extends State<FamilyOSApp> with WidgetsBindingObserver {
               ),
             )
           : _student != null
-              ? KidsHomeScreen(initialStudent: _student!)
+              ? (isParent ? const FamHomeScreen() : KidsHomeScreen(initialStudent: _student!))
               : const KidsAuthScreen(),
     );
   }

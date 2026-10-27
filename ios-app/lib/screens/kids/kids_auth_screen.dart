@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme/kids_theme.dart';
 import '../../services/supabase_service.dart';
 import 'kids_home_screen.dart';
+import '../fam/fam_home_screen.dart';
 
 class KidsAuthScreen extends StatefulWidget {
   const KidsAuthScreen({super.key});
@@ -39,10 +40,17 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> {
     setState(() => _isLoading = false);
 
     if (user != null && mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => KidsHomeScreen(initialStudent: user!)),
-      );
+      if (user.role == 'parent') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const FamHomeScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => KidsHomeScreen(initialStudent: user!)),
+        );
+      }
     } else {
       setState(() {
         _errorMessage = 'Kod bulunamadı. Lütfen ebeveyn panelinizdeki 6 haneli kodu kontrol edin.';

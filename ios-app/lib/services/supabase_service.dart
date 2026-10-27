@@ -8,6 +8,9 @@ import '../models/task_model.dart';
 import '../models/schedule_model.dart';
 import '../models/reward_model.dart';
 import '../models/message_model.dart';
+import '../models/submission_model.dart';
+import '../models/appeal_model.dart';
+import '../models/redemption_model.dart';
 
 class SupabaseService {
   static const String supabaseUrl = 'https://pljxviezoilirlsoavto.supabase.co';
@@ -539,6 +542,264 @@ class SupabaseService {
       NotificationService.showAppMinimizedWarning();
     } catch (e) {
       print('[SupabaseService] İhlal gönderme hatası: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // EBEVEYN (FAMILY-TO-STUDY FAM) YÖNETİM METOTLARI
+  // ---------------------------------------------------------------------------
+
+  /// Ailedeki Çocukları / Öğrencileri Çek
+  static Future<List<UserModel>> fetchFamilyChildren(String familyId) async {
+    try {
+      final res = await client
+          .from('users')
+          .select('*')
+          .eq('family_id', familyId)
+          .eq('role', 'child');
+
+      return res.map((u) => UserModel.fromJson(u)).toList();
+    } catch (e) {
+      print('[fetchFamilyChildren] Hata: $e');
+      return [];
+    }
+  }
+
+  /// Çocuğun Durumunu Değiştir (Ders, Rutin, Serbest, Sabah Alarmı)
+  static Future<bool> setChildState({
+    required String studentId,
+    required String newState,
+    int? durationMinutes,
+  }) async {
+    try {
+      final Map<String, dynamic> updateData = {
+        'current_state': newState,
+      };
+
+      if (durationMinutes != null && durationMinutes > 0) {
+        updateData['state_ends_at'] = DateTime.now()
+            .add(Duration(minutes: durationMinutes))
+            .toUtc()
+            .toIso8601String();
+      } else {
+        updateData['state_ends_at'] = null;
+      }
+
+      await client.from('users').update(updateData).eq('id', studentId);
+      return true;
+    } catch (e) {
+      print('[setChildState] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Çocuğun Günlük Kalkanını Güncelle (+1 Kalkan Ekle veya Düşür)
+  static Future<bool> updateChildShields(String studentId, int delta) async {
+    try {
+      final user = await fetchStudentProfile(studentId);
+      if (user == null) return false;
+
+      final newShields = (user.dailyShields + delta).clamp(0, 3);
+      await client.from('users').update({
+        'daily_shields': newShields,
+      }).eq('id', studentId);
+
+      return true;
+    } catch (e) {
+      print('[updateChildShields] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Onay Bekleyen Görev Teslimatlarını Çek
+  static Future<List<SubmissionModel>> fetchPendingSubmissions(String familyId) async {
+    try {
+      final subs = await client
+          .from('task_submissions')
+          .select('*, tasks(title, points), users(name)')
+          .eq('family_id', familyId)
+          .eq('status', 'pending')
+          .order('created_at', ascending: false);
+
+      return subs.map((s) {
+        final task = s['tasks'] as Map<String, dynamic>? ?? {};
+        final user = s['users'] as Map<String, dynamic>? ?? {};
+        return SubmissionModel.fromJson(
+          s,
+          taskTitle: task['title']?.toString() ?? 'Görev',
+          studentName: user['name']?.toString() ?? 'Öğrenci',
+          points: task['points'] is int ? task['points'] : 10,
+        );
+      }).toList();
+    } catch (e) {
+      print('[fetchPendingSubmissions] Hata: $e');
+      return [];
+    }
+  }
+
+  /// Görev Teslimatını İncele (Onayla & Puan Ver veya Reddet)
+  static Future<bool> reviewSubmission({
+    required String submissionId,
+    required String studentId,
+    required int points,
+    required bool approve,
+    String? reviewerId,
+  }) async {
+    try {
+      if (approve) {
+        // Öğrenciye puanı ver
+        final user = await fetchStudentProfile(studentId);
+        if (user != null) {
+          await client.from('users').update({
+            'points_balance': user.pointsBalance + points,
+          }).eq('id', studentId);
+        }
+
+        // Teslimatı onaylandı yap
+        await client.from('task_submissions').update({
+          'status': 'approved',
+          'approved_by': reviewerId ?? SessionManager.userId,
+        }).eq('id', submissionId);
+      } else {
+        // Reddet
+        await client.from('task_submissions').update({
+          'status': 'rejected',
+          'approved_by': reviewerId ?? SessionManager.userId,
+        }).eq('id', submissionId);
+      }
+
+      return true;
+    } catch (e) {
+      print('[reviewSubmission] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Adalet Divanındaki Bekleyen İtirazları Çek
+  static Future<List<AppealModel>> fetchPendingAppeals(String familyId) async {
+    try {
+      final res = await client
+          .from('appeals')
+          .select('*, users(name)')
+          .eq('family_id', familyId)
+          .eq('status', 'pending')
+          .order('created_at', ascending: false);
+
+      return res.map((a) {
+        final user = a['users'] as Map<String, dynamic>? ?? {};
+        return AppealModel.fromJson(
+          a,
+          studentName: user['name']?.toString() ?? a['student_name']?.toString() ?? 'Öğrenci',
+        );
+      }).toList();
+    } catch (e) {
+      print('[fetchPendingAppeals] Hata: $e');
+      return [];
+    }
+  }
+
+  /// İtirazı Değerlendir (Kabul Et & Kalkanı İade Et veya Reddet)
+  static Future<bool> reviewAppeal({
+    required String appealId,
+    required String studentId,
+    required bool approve,
+    String? reviewerId,
+  }) async {
+    try {
+      if (approve) {
+        // Kalkanı iade et (+1)
+        await updateChildShields(studentId, 1);
+        await client.from('appeals').update({
+          'status': 'accepted',
+          'reviewed_by': reviewerId ?? SessionManager.userId,
+        }).eq('id', appealId);
+      } else {
+        await client.from('appeals').update({
+          'status': 'rejected',
+          'reviewed_by': reviewerId ?? SessionManager.userId,
+        }).eq('id', appealId);
+      }
+
+      return true;
+    } catch (e) {
+      print('[reviewAppeal] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Onay Bekleyen Ödül Taleplerini Çek
+  static Future<List<RedemptionModel>> fetchPendingRedemptions(String familyId) async {
+    try {
+      final res = await client
+          .from('reward_redemptions')
+          .select('*, rewards(title), users(name)')
+          .eq('family_id', familyId)
+          .eq('status', 'pending')
+          .order('created_at', ascending: false);
+
+      return res.map((r) {
+        final rew = r['rewards'] as Map<String, dynamic>? ?? {};
+        final user = r['users'] as Map<String, dynamic>? ?? {};
+        return RedemptionModel.fromJson(
+          r,
+          rewardTitle: rew['title']?.toString() ?? 'Ödül',
+          studentName: user['name']?.toString() ?? 'Öğrenci',
+        );
+      }).toList();
+    } catch (e) {
+      print('[fetchPendingRedemptions] Hata: $e');
+      return [];
+    }
+  }
+
+  /// Ödül Talebini Onayla (Fiziksel Olarak Verildi)
+  static Future<bool> reviewRedemption({
+    required String redemptionId,
+    required bool approve,
+    String? reviewerId,
+  }) async {
+    try {
+      await client.from('reward_redemptions').update({
+        'status': approve ? 'approved' : 'rejected',
+        'approved_by': reviewerId ?? SessionManager.userId,
+      }).eq('id', redemptionId);
+
+      return true;
+    } catch (e) {
+      print('[reviewRedemption] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Yeni Görev / İlk-Kapar Yarışı Oluştur
+  static Future<bool> createNewTask({
+    required String familyId,
+    required String title,
+    String description = '',
+    required int points,
+    required String category,
+    String assignedTo = 'both',
+    bool isRace = false,
+    bool requiresPhoto = false,
+  }) async {
+    try {
+      await client.from('tasks').insert({
+        'family_id': familyId,
+        'title': title,
+        'description': description,
+        'points': points,
+        'category': category,
+        'assigned_to': assignedTo,
+        'is_active': true,
+        'requires_photo': requiresPhoto,
+        'is_first_come_race': isRace,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      });
+
+      return true;
+    } catch (e) {
+      print('[createNewTask] Hata: $e');
+      return false;
     }
   }
 }
