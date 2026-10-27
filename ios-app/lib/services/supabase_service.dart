@@ -154,6 +154,9 @@ class SupabaseService {
             newFamilyId: famId,
             newRole: user.role,
             newName: user.name,
+            newRoleTitle: user.roleTitle,
+            newGender: user.gender,
+            newIsPrimaryAdmin: user.isPrimaryAdmin,
             newToken: token,
           );
           subscribeToRealtimeEvents();
@@ -223,6 +226,9 @@ class SupabaseService {
             newFamilyId: user.familyId,
             newRole: user.role,
             newName: user.name,
+            newRoleTitle: user.roleTitle,
+            newGender: user.gender,
+            newIsPrimaryAdmin: user.isPrimaryAdmin,
           );
           subscribeToRealtimeEvents();
           return user;
@@ -258,6 +264,9 @@ class SupabaseService {
             newFamilyId: user.familyId,
             newRole: user.role,
             newName: user.name,
+            newRoleTitle: user.roleTitle,
+            newGender: user.gender,
+            newIsPrimaryAdmin: user.isPrimaryAdmin,
           );
           subscribeToRealtimeEvents();
           return user;
@@ -312,6 +321,9 @@ class SupabaseService {
           newFamilyId: user.familyId,
           newRole: user.role,
           newName: user.name,
+          newRoleTitle: user.roleTitle,
+          newGender: user.gender,
+          newIsPrimaryAdmin: user.isPrimaryAdmin,
           newToken: token,
         );
         subscribeToRealtimeEvents();
@@ -1193,6 +1205,298 @@ class SupabaseService {
       return true;
     } catch (e) {
       print('[createNewTask] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Onay Bekleyen Öğrenci Görev Önerilerini Çek
+  static Future<List<TaskModel>> fetchPendingTaskProposals(String familyId) async {
+    try {
+      final res = await client
+          .from('tasks')
+          .select('*')
+          .eq('family_id', familyId)
+          .eq('proposal_status', 'pending_parent_approval');
+      return (res as List).map((t) => TaskModel.fromJson(t)).toList();
+    } catch (e) {
+      print('[fetchPendingTaskProposals] Hata: $e');
+      return [];
+    }
+  }
+
+  /// Öğrencinin Görev Önerisini Onayla veya Reddet
+  static Future<bool> reviewTaskProposal(String taskId, bool approved) async {
+    try {
+      if (approved) {
+        await client.from('tasks').update({
+          'proposal_status': 'approved',
+          'is_active': true,
+        }).eq('id', taskId);
+      } else {
+        await client.from('tasks').update({
+          'proposal_status': 'rejected',
+          'is_active': false,
+        }).eq('id', taskId);
+      }
+      tasksUpdateController.add(null);
+      return true;
+    } catch (e) {
+      print('[reviewTaskProposal] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Acil Flaş Görev (Flash Quest) Fırlat (2 Kat Puan, Süreli)
+  static Future<bool> createFlashQuest({
+    required String familyId,
+    required String title,
+    required int points,
+    required int durationMinutes,
+    String assignedTo = 'both',
+    bool requiresPhoto = true,
+    bool isRace = false,
+  }) async {
+    try {
+      await client.from('tasks').insert({
+        'family_id': familyId,
+        'assigned_to': assignedTo,
+        'title': title.trim(),
+        'description': '⚡ ACİL FLAŞ GÖREV ($durationMinutes Dk Süre)!',
+        'points': points,
+        'category': 'flash_quest',
+        'requires_photo': requiresPhoto,
+        'is_first_come_race': isRace,
+        'is_active': true,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      tasksUpdateController.add(null);
+      return true;
+    } catch (e) {
+      print('[createFlashQuest] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Sürpriz Happy Hour İndirim Saati Başlat
+  static Future<bool> startHappyHour({
+    required String familyId,
+    required int discountPercent,
+    required int durationMinutes,
+  }) async {
+    try {
+      final endsAt = DateTime.now().add(Duration(minutes: durationMinutes)).toUtc().toIso8601String();
+      await client.from('family_settings').upsert({
+        'family_id': familyId,
+        'happy_hour_discount_percent': discountPercent,
+        'happy_hour_ends_at': endsAt,
+      }, onConflict: 'family_id');
+      return true;
+    } catch (e) {
+      print('[startHappyHour] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Veli Otopilot Modunu Ayarla (Saatlik Otomatik Onay)
+  static Future<bool> setParentAutopilot({
+    required String familyId,
+    required int hours,
+  }) async {
+    try {
+      final until = hours > 0
+          ? DateTime.now().add(Duration(hours: hours)).toUtc().toIso8601String()
+          : null;
+      await client.from('family_settings').upsert({
+        'family_id': familyId,
+        'autopilot_until': until,
+      }, onConflict: 'family_id');
+      return true;
+    } catch (e) {
+      print('[setParentAutopilot] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Aile Hazine Sandığı Hedefini Güncelle
+  static Future<bool> updateFamilyChestGoal({
+    required String familyId,
+    required int goal,
+    required String title,
+  }) async {
+    try {
+      await client.from('family_settings').upsert({
+        'family_id': familyId,
+        'family_chest_goal': goal,
+        'family_chest_reward_title': title.trim(),
+      }, onConflict: 'family_id');
+      return true;
+    } catch (e) {
+      print('[updateFamilyChestGoal] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Çevrimdışı Master PIN'i Güncelle
+  static Future<bool> updateOfflineMasterPin({
+    required String familyId,
+    required String pin,
+  }) async {
+    try {
+      await client.from('family_settings').upsert({
+        'family_id': familyId,
+        'offline_master_pin_hash': pin.trim(),
+      }, onConflict: 'family_id');
+      return true;
+    } catch (e) {
+      print('[updateOfflineMasterPin] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Aileye Yeni Birey Ekle (Baba, Anne, Abla, Abi, Hala, Dayı, vb. veya Kız/Erkek Çocuk)
+  static Future<bool> addFamilyMember({
+    required String familyId,
+    required String name,
+    required String role, // 'parent' or 'child'
+    required String roleTitle,
+    required String gender,
+    required String emoji,
+    String? grade,
+    String? ageGroup,
+    String? pin,
+  }) async {
+    try {
+      final newId = role == 'parent'
+          ? 'usr-parent-${DateTime.now().millisecondsSinceEpoch}'
+          : 'usr-child-${DateTime.now().millisecondsSinceEpoch}';
+      final cleanName = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+      await client.from('users').insert({
+        'id': newId,
+        'family_id': familyId,
+        'name': name.trim(),
+        'role': role,
+        'username': '$cleanName.${DateTime.now().millisecondsSinceEpoch % 1000}',
+        'access_password': pin ?? '123456',
+        'avatar_config': {
+          'emoji': emoji,
+          'roleTitle': roleTitle,
+          'gender': gender,
+          'grade': grade ?? (role == 'parent' ? 'Yetişkin' : '5. Sınıf'),
+          'ageGroup': ageGroup ?? (role == 'parent' ? 'adult' : 'kid'),
+          'bg': role == 'parent' ? 'from-indigo-600 to-purple-700' : 'from-amber-400 to-orange-500',
+          'isPrimaryAdmin': false,
+        },
+        'theme': role == 'parent' ? 'parent-command' : 'cosmic-explorer',
+        'points_balance': role == 'child' ? 50 : 0,
+        'piggy_bank_balance': 0,
+        'daily_shields': 3,
+        'streak_days': 1,
+        'wheel_spins_available': 1,
+        'current_mood': 'happy',
+        'current_state': 'FREE_TIME',
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      return true;
+    } catch (e) {
+      print('[addFamilyMember] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Aile Bireyini Sil
+  static Future<bool> deleteFamilyMember(String userId) async {
+    try {
+      await client.from('users').delete().eq('id', userId);
+      return true;
+    } catch (e) {
+      print('[deleteFamilyMember] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Yeni Ödül Tanımla
+  static Future<bool> createReward({
+    required String familyId,
+    required String title,
+    required int costPoints,
+    required String tier, // 'micro', 'medium', 'large', 'parent_challenge'
+    String icon = 'Sparkles',
+  }) async {
+    try {
+      await client.from('rewards').insert({
+        'family_id': familyId,
+        'title': title.trim(),
+        'cost_points': costPoints,
+        'tier': tier,
+        'icon': icon,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      return true;
+    } catch (e) {
+      print('[createReward] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Haftalık Okul Programı Güncelle / Kaydet
+  static Future<bool> upsertSchoolScheduleItem({
+    required String familyId,
+    required String userId,
+    required int dayOfWeek,
+    required List<String> lessons,
+    bool hasPeClass = false,
+    bool hasArtClass = false,
+  }) async {
+    try {
+      await client.from('school_schedules').upsert({
+        'family_id': familyId,
+        'user_id': userId,
+        'day_of_week': dayOfWeek,
+        'lessons': lessons,
+        'has_pe_class': hasPeClass,
+        'has_art_class': hasArtClass,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }, onConflict: 'user_id,day_of_week');
+      return true;
+    } catch (e) {
+      print('[upsertSchoolScheduleItem] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Pazar Gecesi Altın Kasa Faiz Kârı Dağıt (+%20 Kasa Bonusu)
+  static Future<bool> triggerSundayPiggyBonus(String familyId) async {
+    try {
+      final kids = await fetchFamilyChildren(familyId);
+      for (final k in kids) {
+        if (k.piggyBankBalance > 0) {
+          final bonus = (k.piggyBankBalance * 0.20).round();
+          if (bonus > 0) {
+            await client.from('users').update({
+              'piggy_bank_balance': k.piggyBankBalance + bonus,
+            }).eq('id', k.id);
+          }
+        }
+      }
+      return true;
+    } catch (e) {
+      print('[triggerSundayPiggyBonus] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Sıfır İhlal Günlük Başarı Bonusu (+25 Puan)
+  static Future<bool> triggerDailyZeroViolationBonus(String familyId) async {
+    try {
+      final kids = await fetchFamilyChildren(familyId);
+      for (final k in kids) {
+        await client.from('users').update({
+          'points_balance': k.pointsBalance + 25,
+        }).eq('id', k.id);
+      }
+      return true;
+    } catch (e) {
+      print('[triggerDailyZeroViolationBonus] Hata: $e');
       return false;
     }
   }

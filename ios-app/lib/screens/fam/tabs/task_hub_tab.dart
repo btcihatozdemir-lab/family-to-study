@@ -42,6 +42,510 @@ class _TaskHubTabState extends State<TaskHubTab> {
     }
   }
 
+  void _openFlashQuestModal() {
+    final titleController = TextEditingController(text: '⚡ Acil Görev: Odanı 15 dakikada topla!');
+    int points = 30;
+    int duration = 15;
+    bool isRace = true;
+    bool requiresPhoto = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: FamTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('🔥', style: TextStyle(fontSize: 22)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Acil Flaş Görev (Flash Quest)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Süreli ve yüksek puanlı görev başlatın. İlk bitiren çocuk puanı kapar!',
+                      style: TextStyle(color: FamTheme.textMuted, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+
+                    TextField(
+                      controller: titleController,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        labelText: 'Flaş Görev Başlığı',
+                        labelStyle: const TextStyle(color: FamTheme.textMuted),
+                        filled: true,
+                        fillColor: Colors.black26,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Puan Ödülü:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        Text('$points 🪙 (2 Kat Bonus)', style: const TextStyle(color: FamTheme.gold, fontWeight: FontWeight.w900, fontSize: 15)),
+                      ],
+                    ),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: FamTheme.gold,
+                        thumbColor: FamTheme.gold,
+                      ),
+                      child: Slider(
+                        min: 10,
+                        max: 100,
+                        divisions: 18,
+                        value: points.toDouble(),
+                        onChanged: (val) => setModalState(() => points = val.round()),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Süre Limiti:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        Text('$duration Dakika', style: const TextStyle(color: FamTheme.primaryLight, fontWeight: FontWeight.bold, fontSize: 14)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [10, 15, 20, 30, 45].map((d) {
+                        final isSel = duration == d;
+                        return ChoiceChip(
+                          label: Text('$d dk'),
+                          selected: isSel,
+                          selectedColor: FamTheme.primary,
+                          labelStyle: TextStyle(
+                            color: isSel ? Colors.white : FamTheme.textMuted,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          onSelected: (_) => setModalState(() => duration = d),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // İlk-Kapar
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          const Text('🏁', style: TextStyle(fontSize: 20)),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'İlk-Kapar Yarış Modu (İlk bitiren kazanır)',
+                              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Switch(
+                            value: isRace,
+                            activeColor: FamTheme.primaryLight,
+                            onChanged: (v) => setModalState(() => isRace = v),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Fotoğraf
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          const Text('📸', style: TextStyle(fontSize: 20)),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Fotoğraf Kanıtı Zorunlu',
+                              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Switch(
+                            value: requiresPhoto,
+                            activeColor: FamTheme.emerald,
+                            onChanged: (v) => setModalState(() => requiresPhoto = v),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (titleController.text.trim().isEmpty) return;
+                        Navigator.pop(ctx);
+                        final ok = await SupabaseService.createFlashQuest(
+                          familyId: widget.familyId,
+                          title: titleController.text.trim(),
+                          points: points,
+                          durationMinutes: duration,
+                          isRace: isRace,
+                          requiresPhoto: requiresPhoto,
+                        );
+                        if (ok) {
+                          _loadData();
+                          widget.onRefreshAll();
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF97316),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text('🔥 Flaş Görevi Şimdi Başlat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openCreateRewardModal() {
+    final titleController = TextEditingController();
+    int cost = 50;
+    String tier = 'micro';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: FamTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('🎁', style: TextStyle(fontSize: 22)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Yeni Ödül Tanımla',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    TextField(
+                      controller: titleController,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        labelText: 'Ödül Adı',
+                        labelStyle: const TextStyle(color: FamTheme.textMuted),
+                        hintText: 'Örn: 30 Dk Ekran Süresi, Sinema Bileti',
+                        hintStyle: const TextStyle(color: Colors.white24),
+                        filled: true,
+                        fillColor: Colors.black26,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Puan Maliyeti:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        Text('$cost 🪙', style: const TextStyle(color: FamTheme.gold, fontWeight: FontWeight.w900, fontSize: 16)),
+                      ],
+                    ),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: FamTheme.gold,
+                        thumbColor: FamTheme.gold,
+                      ),
+                      child: Slider(
+                        min: 20,
+                        max: 500,
+                        divisions: 24,
+                        value: cost.toDouble(),
+                        onChanged: (val) => setModalState(() => cost = val.round()),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    DropdownButtonFormField<String>(
+                      value: tier,
+                      dropdownColor: FamTheme.surfaceElevated,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        labelText: 'Ödül Seviyesi (Tier)',
+                        labelStyle: const TextStyle(color: FamTheme.textMuted),
+                        filled: true,
+                        fillColor: Colors.black26,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'micro', child: Text('🟢 Küçük Ödül (20-100 Puan)')),
+                        DropdownMenuItem(value: 'medium', child: Text('🟡 Orta Ödül (100-250 Puan)')),
+                        DropdownMenuItem(value: 'large', child: Text('🟣 Büyük Ödül (250+ Puan)')),
+                        DropdownMenuItem(value: 'parent_challenge', child: Text('🏆 Veli Meydan Okuması')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setModalState(() => tier = val);
+                      },
+                    ),
+                    const SizedBox(height: 24),
+
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (titleController.text.trim().isEmpty) return;
+                        Navigator.pop(ctx);
+                        final ok = await SupabaseService.createReward(
+                          familyId: widget.familyId,
+                          title: titleController.text.trim(),
+                          costPoints: cost,
+                          tier: tier,
+                        );
+                        if (ok && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Yeni ödül pazara eklendi! ✨')),
+                          );
+                          widget.onRefreshAll();
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: FamTheme.gold,
+                        foregroundColor: Colors.black87,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text('Ödülü Pazara Ekle', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openHappyHourModal() {
+    int discount = 30;
+    int duration = 60;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: FamTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('🏷️', style: TextStyle(fontSize: 22)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Sürpriz Happy Hour İndirimi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Ödül pazarında sınırlı süreli indirim başlatın, çocukları motive edin!',
+                      style: TextStyle(color: FamTheme.textMuted, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+
+                    const Text('İndirim Oranı:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [20, 30, 50].map((d) {
+                        final isSel = discount == d;
+                        return ChoiceChip(
+                          label: Text('%$d İndirim'),
+                          selected: isSel,
+                          selectedColor: FamTheme.primary,
+                          labelStyle: TextStyle(
+                            color: isSel ? Colors.white : FamTheme.textMuted,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          onSelected: (_) => setModalState(() => discount = d),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
+
+                    const Text('Süre:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [30, 60, 120].map((m) {
+                        final isSel = duration == m;
+                        return ChoiceChip(
+                          label: Text('$m Dakika'),
+                          selected: isSel,
+                          selectedColor: FamTheme.emerald,
+                          labelStyle: TextStyle(
+                            color: isSel ? Colors.white : FamTheme.textMuted,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          onSelected: (_) => setModalState(() => duration = m),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+
+                    ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        final ok = await SupabaseService.startHappyHour(
+                          familyId: widget.familyId,
+                          discountPercent: discount,
+                          durationMinutes: duration,
+                        );
+                        if (ok && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('🎉 %$discount indirim $duration dakika boyunca devrede!')),
+                          );
+                          widget.onRefreshAll();
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: FamTheme.primaryLight,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text('İndirimi Hemen Başlat', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _openCreateTaskModal() {
     final titleController = TextEditingController();
     final descController = TextEditingController();
@@ -359,6 +863,129 @@ class _TaskHubTabState extends State<TaskHubTab> {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 12),
+
+          // Flash Quest Big Action Card
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFEA580C), Color(0xFFC2410C)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFEA580C).withOpacity(0.3),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Text('🔥', style: TextStyle(fontSize: 26)),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Acil Flaş Görev (Flash Quest)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Süreli, 2 kat puanlı ani ilk-kapar görevi başlat.',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: _openFlashQuestModal,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFFEA580C),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    elevation: 0,
+                  ),
+                  child: const Text('Başlat', style: TextStyle(fontWeight: FontWeight.w900)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Quick Tactical Tools: Reward and Happy Hour
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: _openCreateRewardModal,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: FamTheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: FamTheme.gold.withOpacity(0.3)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('🎁', style: TextStyle(fontSize: 18)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Ödül Tanımla',
+                          style: TextStyle(color: FamTheme.gold, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: InkWell(
+                  onTap: _openHappyHourModal,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: FamTheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: FamTheme.primaryLight.withOpacity(0.3)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('🏷️', style: TextStyle(fontSize: 18)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Happy Hour',
+                          style: TextStyle(color: FamTheme.primaryLight, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
 

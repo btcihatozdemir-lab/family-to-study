@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/submission_model.dart';
 import '../../../models/redemption_model.dart';
+import '../../../models/task_model.dart';
 import '../../../services/supabase_service.dart';
 import '../../../theme/fam_theme.dart';
 
@@ -21,6 +22,7 @@ class ApprovalsTab extends StatefulWidget {
 class _ApprovalsTabState extends State<ApprovalsTab> {
   List<SubmissionModel> _submissions = [];
   List<RedemptionModel> _redemptions = [];
+  List<TaskModel> _taskProposals = [];
   bool _isLoading = true;
 
   @override
@@ -33,13 +35,30 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
     setState(() => _isLoading = true);
     final subs = await SupabaseService.fetchPendingSubmissions(widget.familyId);
     final reds = await SupabaseService.fetchPendingRedemptions(widget.familyId);
+    final props = await SupabaseService.fetchPendingTaskProposals(widget.familyId);
     if (mounted) {
       setState(() {
         _submissions = subs;
         _redemptions = reds;
+        _taskProposals = props;
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _handleApproveAllSubmissions() async {
+    if (_submissions.isEmpty) return;
+    setState(() => _isLoading = true);
+    for (final sub in _submissions) {
+      await SupabaseService.reviewSubmission(
+        submissionId: sub.id,
+        studentId: sub.studentId,
+        points: sub.points,
+        approve: true,
+      );
+    }
+    await _loadApprovals();
+    widget.onRefreshAll();
   }
 
   void _showPhotoDialog(String url) {
@@ -76,7 +95,7 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final totalCount = _submissions.length + _redemptions.length;
+    final totalCount = _submissions.length + _redemptions.length + _taskProposals.length;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -131,7 +150,7 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                       const SizedBox(height: 2),
                       Text(
                         totalCount > 0
-                            ? 'Öğrencilerinizin gönderdiği görevleri inceleyip altın puanlarını onaylayın.'
+                            ? 'Öğrencilerinizin gönderdiği görevleri, teklifleri ve ödülleri onaylayın.'
                             : 'Onay bekleyen yeni bir görev veya ödül talebi bulunmuyor.',
                         style: const TextStyle(color: FamTheme.textMuted, fontSize: 12),
                       ),
@@ -147,11 +166,11 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Text('📸', style: TextStyle(fontSize: 18)),
-                  SizedBox(width: 8),
-                  Text(
+                  const Text('📸', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  const Text(
                     'Görev Teslimatları',
                     style: TextStyle(
                       color: Colors.white,
@@ -159,19 +178,33 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: FamTheme.surfaceElevated,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${_submissions.length}',
+                      style: const TextStyle(color: FamTheme.primaryLight, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: FamTheme.surfaceElevated,
-                  borderRadius: BorderRadius.circular(10),
+              if (_submissions.isNotEmpty)
+                TextButton.icon(
+                  onPressed: _handleApproveAllSubmissions,
+                  icon: const Icon(Icons.done_all, color: FamTheme.emerald, size: 16),
+                  label: const Text(
+                    'Hepsini Onayla',
+                    style: TextStyle(color: FamTheme.emerald, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  style: TextButton.styleFrom(
+                    backgroundColor: FamTheme.emerald.withOpacity(0.1),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  ),
                 ),
-                child: Text(
-                  '${_submissions.length}',
-                  style: const TextStyle(color: FamTheme.primaryLight, fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -183,7 +216,48 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
 
           const SizedBox(height: 24),
 
-          // Section 2: Ödül Talepleri
+          // Section 2: Öğrenci Görev Teklifleri
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text('💡', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Öğrenci Görev Teklifleri',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: FamTheme.surfaceElevated,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${_taskProposals.length}',
+                      style: const TextStyle(color: FamTheme.goldLight, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (_taskProposals.isEmpty)
+            _buildEmptyState('Bekleyen öğrenci görev teklifi yok')
+          else
+            ..._taskProposals.map((task) => _buildTaskProposalCard(task)),
+
+          const SizedBox(height: 24),
+
+          // Section 3: Ödül Talepleri
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -451,6 +525,109 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             child: const Text('Verildi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTaskProposalCard(TaskModel task) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: FamTheme.cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: FamTheme.gold.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Text('💡', style: TextStyle(fontSize: 18)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      task.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      task.assignedTo == 'both' ? 'Tüm Çocuklar İçin Öneri' : 'Öğrenci Özel Teklifi',
+                      style: const TextStyle(color: FamTheme.goldLight, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: FamTheme.gold.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: FamTheme.gold.withOpacity(0.3)),
+                ),
+                child: Text(
+                  '${task.points} 🪙',
+                  style: const TextStyle(
+                    color: FamTheme.gold,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (task.description.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              task.description,
+              style: const TextStyle(color: FamTheme.textMuted, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await SupabaseService.reviewTaskProposal(task.id, true);
+                    _loadApprovals();
+                    widget.onRefreshAll();
+                  },
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text('Görevi Kabul Et'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: FamTheme.emerald,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton(
+                onPressed: () async {
+                  await SupabaseService.reviewTaskProposal(task.id, false);
+                  _loadApprovals();
+                  widget.onRefreshAll();
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: FamTheme.rose),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Reddet', style: TextStyle(color: FamTheme.rose, fontSize: 13)),
+              ),
+            ],
           ),
         ],
       ),

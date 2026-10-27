@@ -5,6 +5,7 @@ import 'tabs/live_dashboard_tab.dart';
 import 'tabs/approvals_tab.dart';
 import 'tabs/task_hub_tab.dart';
 import 'tabs/justice_walkie_tab.dart';
+import 'tabs/family_settings_tab.dart';
 import '../kids/kids_auth_screen.dart';
 
 class FamHomeScreen extends StatefulWidget {
@@ -76,6 +77,7 @@ class _FamHomeScreenState extends State<FamHomeScreen> {
                 ApprovalsTab(familyId: familyId, onRefreshAll: _handleRefreshAll),
                 TaskHubTab(familyId: familyId, onRefreshAll: _handleRefreshAll),
                 JusticeWalkieTab(familyId: familyId, onRefreshAll: _handleRefreshAll),
+                FamilySettingsTab(familyId: familyId, onRefreshAll: _handleRefreshAll),
               ],
             ),
           ),
@@ -124,18 +126,45 @@ class _FamHomeScreenState extends State<FamHomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  familyName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const Row(
+                Row(
                   children: [
-                    Text('🛡️ Ebeveyn Yönetim Paneli', style: TextStyle(color: FamTheme.textMuted, fontSize: 11)),
+                    Flexible(
+                      child: Text(
+                        familyName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (SessionManager.isPrimaryAdmin) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: FamTheme.gold.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: FamTheme.gold.withOpacity(0.5)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('👑 Kurucu', style: TextStyle(color: FamTheme.goldLight, fontSize: 10, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                Row(
+                  children: [
+                    Text(
+                      '🛡️ ${SessionManager.userName} (${SessionManager.roleTitle})',
+                      style: const TextStyle(color: FamTheme.textMuted, fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ],
@@ -162,14 +191,15 @@ class _FamHomeScreenState extends State<FamHomeScreen> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(0, '🏠', 'Çocuklar'),
               _buildNavItem(1, '🔔', 'Onay Masası'),
-              _buildNavItem(2, '⚡', 'Görev & Yarış'),
+              _buildNavItem(2, '⚡', 'Görev & Pazar'),
               _buildNavItem(3, '⚖️', 'Divan & Telsiz'),
+              _buildNavItem(4, '⚙️', 'Aile Yönetimi'),
             ],
           ),
         ),

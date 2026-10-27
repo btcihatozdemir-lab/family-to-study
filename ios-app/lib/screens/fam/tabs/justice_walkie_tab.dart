@@ -4,6 +4,8 @@ import '../../../models/appeal_model.dart';
 import '../../../models/message_model.dart';
 import '../../../services/supabase_service.dart';
 import '../../../services/session_manager.dart';
+import '../../../services/walkie_audio_service.dart';
+import '../../../services/tts_service.dart';
 import '../../../theme/fam_theme.dart';
 
 class JusticeWalkieTab extends StatefulWidget {
@@ -28,11 +30,17 @@ class _JusticeWalkieTabState extends State<JusticeWalkieTab> {
   final ScrollController _scrollController = ScrollController();
   StreamSubscription<MessageModel>? _msgSub;
 
+  bool _isRecording = false;
+  int _recordSeconds = 0;
+  Timer? _recordTimer;
+  String? _currentlyPlayingId;
+
   final List<String> _quickBroadcasts = [
     '🍲 Akşam yemeği hazır, masaya gelin!',
     '📚 Ders ve odaklanma saati başlıyor.',
     '🌟 Harika gidiyorsunuz, tebrikler!',
     '🛏️ Uyku saati yaklaşıyor, hazırlanın.',
+    '👏 Mükemmel çalışma, mola verebilirsiniz!',
   ];
 
   @override
@@ -41,7 +49,9 @@ class _JusticeWalkieTabState extends State<JusticeWalkieTab> {
     _loadData();
     _msgSub = SupabaseService.messageStreamController.stream.listen((msg) {
       if (mounted) {
-        setState(() => _messages.add(msg));
+        setState(() {
+          _addOrReplaceMessage(msg);
+        });
         _scrollToBottom();
       }
     });
@@ -50,19 +60,51 @@ class _JusticeWalkieTabState extends State<JusticeWalkieTab> {
   @override
   void dispose() {
     _msgSub?.cancel();
+    _recordTimer?.cancel();
     _msgController.dispose();
     _scrollController.dispose();
+    WalkieAudioService.stopAudio();
     super.dispose();
+  }
+
+  void _addOrReplaceMessage(MessageModel msg) {
+    if (_messages.any((m) => m.id == msg.id)) return;
+    final tempIndex = _messages.indexWhere((m) =>
+        m.id.startsWith('temp-') &&
+        m.senderId == msg.senderId &&
+        m.content == msg.content);
+    if (tempIndex != -1) {
+      _messages[tempIndex] = msg;
+      return;
+    }
+    final isDup = _messages.any((m) =>
+        m.senderId == msg.senderId &&
+        m.content == msg.content &&
+        m.createdAt.difference(msg.createdAt).abs().inSeconds < 4);
+    if (!isDup) {
+      _messages.add(msg);
+    }
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     final appeals = await SupabaseService.fetchPendingAppeals(widget.familyId);
-    final msgs = await SupabaseService.fetchMessages(widget.familyId);
+    final rawMsgs = await SupabaseService.fetchMessages(widget.familyId);
+
+    final deduplicated = <MessageModel>[];
+    for (final m in rawMsgs) {
+      final isDup = deduplicated.any((ex) =>
+          ex.id == m.id ||
+          (ex.senderId == m.senderId &&
+           ex.content == m.content &&
+           ex.createdAt.difference(m.createdAt).abs().inSeconds < 4));
+      if (!isDup) deduplicated.add(m);
+    }
+
     if (mounted) {
       setState(() {
         _appeals = appeals;
-        _messages = msgs;
+        _messages = deduplicated;
         _isLoading = false;
       });
       _scrollToBottom();
@@ -86,10 +128,11 @@ class _JusticeWalkieTabState extends State<JusticeWalkieTab> {
     if (clean.isEmpty) return;
 
     _msgController.clear();
+    final senderName = SessionManager.userName.isNotEmpty ? SessionManager.userName : 'Ebeveyn';
     final ok = await SupabaseService.sendMessage(
       familyId: widget.familyId,
       senderId: SessionManager.userId,
-      senderName: SessionManager.userName.isNotEmpty ? SessionManager.userName : 'Ebeveyn',
+      senderName: senderName,
       receiverId: 'all',
       content: clean,
     );
@@ -97,6 +140,68 @@ class _JusticeWalkieTabState extends State<JusticeWalkieTab> {
     if (ok) {
       _loadData();
     }
+  }
+
+  Future<void> _startVoiceRecording() async {
+    if (_isRecording) return;
+    setState(() {
+      _isRecording = true;
+      _recordSeconds = 0;
+    });
+
+    TTSService.speak('Bip!');
+    await WalkieAudioService.startRecording();
+
+    _recordTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (mounted) {
+        setState(() => _recordSeconds++);
+      }
+    });
+  }
+
+  Future<void> _stopVoiceRecording() async {
+    if (!_isRecording) return;
+    _recordTimer?.cancel();
+    final duration = _recordSeconds > 0 ? _recordSeconds : 1;
+
+    setState(() {
+      _isRecording = false;
+    });
+
+    final audioBase64 = await WalkieAudioService.stopRecording();
+    final voiceContent = '🎙️ Ebeveyn Sesli Telsiz Anonsu ($duration sn)';
+
+    final ok = await SupabaseService.sendMessage(
+      familyId: widget.familyId,
+      senderId: SessionManager.userId,
+      senderName: SessionManager.userName.isNotEmpty ? SessionManager.userName : 'Ebeveyn',
+      receiverId: 'all',
+      content: voiceContent,
+      messageType: 'audio',
+      audioUrl: audioBase64,
+    );
+
+    if (ok) {
+      _loadData();
+    }
+  }
+
+  void _toggleVoiceRecording() {
+    if (_isRecording) {
+      _stopVoiceRecording();
+    } else {
+      _startVoiceRecording();
+    }
+  }
+
+  void _playAudio(String url, String id) {
+    if (_currentlyPlayingId == id) {
+      WalkieAudioService.stopAudio();
+      setState(() => _currentlyPlayingId = null);
+      return;
+    }
+    setState(() => _currentlyPlayingId = id);
+    WalkieAudioService.playAudio(url);
   }
 
   @override
@@ -230,36 +335,85 @@ class _JusticeWalkieTabState extends State<JusticeWalkieTab> {
           ),
           child: SafeArea(
             top: false,
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _msgController,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: 'Tüm aileye seslen veya anons yap...',
-                      hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-                      filled: true,
-                      fillColor: Colors.black26,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
+                if (_isRecording)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: FamTheme.rose.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: FamTheme.rose),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.mic, color: FamTheme.rose, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          '🔴 Ses Kaydediliyor: $_recordSeconds sn',
+                          style: const TextStyle(color: FamTheme.rose, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                Row(
+                  children: [
+                    // Voice Mic Button
+                    GestureDetector(
+                      onTap: _toggleVoiceRecording,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: _isRecording ? FamTheme.rose : FamTheme.surface,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _isRecording ? Colors.white : Colors.white24,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Icon(
+                          _isRecording ? Icons.stop_rounded : Icons.mic_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                     ),
-                    onSubmitted: _sendBroadcast,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  decoration: const BoxDecoration(
-                    color: FamTheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                    onPressed: () => _sendBroadcast(_msgController.text),
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _msgController,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Tüm aileye seslen veya anons yap...',
+                          hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                          filled: true,
+                          fillColor: Colors.black26,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onSubmitted: _sendBroadcast,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: const BoxDecoration(
+                        color: FamTheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                        onPressed: () => _sendBroadcast(_msgController.text),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -270,6 +424,8 @@ class _JusticeWalkieTabState extends State<JusticeWalkieTab> {
   }
 
   Widget _buildAppealCard(AppealModel appeal) {
+    final hasAudio = appeal.audioUrl != null && appeal.audioUrl!.isNotEmpty;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -299,6 +455,36 @@ class _JusticeWalkieTabState extends State<JusticeWalkieTab> {
             appeal.reasonText,
             style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.3),
           ),
+          if (hasAudio) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: FamTheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: FamTheme.gold.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _currentlyPlayingId == appeal.id ? Icons.stop_circle : Icons.play_circle_fill,
+                      color: FamTheme.gold,
+                      size: 26,
+                    ),
+                    onPressed: () => _playAudio(appeal.audioUrl!, appeal.id),
+                  ),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      '🎙️ Öğrencinin Sesli Savunması',
+                      style: TextStyle(color: FamTheme.goldLight, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Row(
             children: [
@@ -349,6 +535,9 @@ class _JusticeWalkieTabState extends State<JusticeWalkieTab> {
   }
 
   Widget _buildMessageBubble(MessageModel msg, bool isMe) {
+    final bool hasAudio = msg.isAudio || (msg.audioUrl != null && msg.audioUrl!.isNotEmpty);
+    final isPlaying = _currentlyPlayingId == msg.id;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -373,11 +562,38 @@ class _JusticeWalkieTabState extends State<JusticeWalkieTab> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    msg.content,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                  ),
+                  const SizedBox(height: 4),
+                  if (hasAudio)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            isPlaying ? Icons.stop_circle : Icons.play_circle_fill,
+                            color: isMe ? Colors.white : FamTheme.gold,
+                            size: 28,
+                          ),
+                          onPressed: () {
+                            final url = msg.audioUrl ?? msg.content;
+                            _playAudio(url, msg.id);
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isPlaying ? 'Oynatılıyor...' : 'Sesli Mesaj (Dinle)',
+                          style: TextStyle(
+                            color: isMe ? Colors.white : FamTheme.goldLight,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Text(
+                      msg.content,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
                 ],
               ),
             ),

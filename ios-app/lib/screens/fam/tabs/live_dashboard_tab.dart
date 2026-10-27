@@ -332,40 +332,94 @@ class _LiveDashboardTabState extends State<LiveDashboardTab> {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: FamTheme.primary.withOpacity(0.3)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.black26,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Text('🛡️', style: TextStyle(fontSize: 26)),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Text('🛡️', style: TextStyle(fontSize: 26)),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Aile Akademisi Canlı Telemetri',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Öğrencilerinizin canlı durumlarını anlık yönetin, ekran kilidi uygulayın ve takdir bonusu dağıtın.',
+                      style: TextStyle(
+                        color: FamTheme.textMuted,
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Aile Akademisi & Kalkan Koruma',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final res = await SupabaseService.triggerDailyZeroViolationBonus(widget.familyId);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(res ? '🛡️ İhlalsiz öğrencilere kalkan ödülü verildi!' : 'İşlem tamamlandı')),
+                      );
+                      _loadChildren();
+                      widget.onRefreshAll();
+                    }
+                  },
+                  icon: const Text('🛡️', style: TextStyle(fontSize: 13)),
+                  label: const Text('Sıfır İhlal Bonusu (+15)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: FamTheme.emerald,
+                    side: BorderSide(color: FamTheme.emerald.withOpacity(0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
-                SizedBox(height: 2),
-                Text(
-                  'Öğrencilerinizin canlı durumlarını tek tıkla ders, rutin veya serbest moda alabilirsiniz.',
-                  style: TextStyle(
-                    color: FamTheme.textMuted,
-                    fontSize: 12,
-                    height: 1.3,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final res = await SupabaseService.triggerSundayPiggyBonus(widget.familyId);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(res ? '🏺 Haftalık %10 Kumbara temettüsü yatırıldı!' : 'İşlem tamamlandı')),
+                      );
+                      _loadChildren();
+                      widget.onRefreshAll();
+                    }
+                  },
+                  icon: const Text('🏺', style: TextStyle(fontSize: 13)),
+                  label: const Text('Kumbara %10 Temettü', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: FamTheme.gold,
+                    side: BorderSide(color: FamTheme.gold.withOpacity(0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
