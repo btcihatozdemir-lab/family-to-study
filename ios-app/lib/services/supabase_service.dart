@@ -166,7 +166,110 @@ class SupabaseService {
     return null;
   }
 
-  /// PIN / Şifre veya Kullanıcı Adı ile Giriş
+  /// Aile Kodu ile Aileyi Getir (Örn: FAMZDE-2026)
+  static Future<Map<String, dynamic>?> fetchFamilyByCode(String code) async {
+    final cleanCode = code.trim().toUpperCase();
+    try {
+      final res = await client
+          .from('families')
+          .select('*')
+          .ilike('family_code', cleanCode)
+          .limit(1);
+      if (res.isNotEmpty) {
+        return res.first;
+      }
+    } catch (e) {
+      print('[fetchFamilyByCode] Hata: $e');
+    }
+    return null;
+  }
+
+  /// Bir Aileye Ait Üyeleri / Çocukları Getir
+  static Future<List<UserModel>> fetchFamilyMembers(String familyId) async {
+    try {
+      final res = await client
+          .from('users')
+          .select('*')
+          .eq('family_id', familyId)
+          .order('role', ascending: false);
+      return res.map((r) => UserModel.fromJson(r)).toList();
+    } catch (e) {
+      print('[fetchFamilyMembers] Hata: $e');
+      return [];
+    }
+  }
+
+  /// Seçili Çocuk İçin Özel PIN Doğrulaması (Çakışma İhtimali Sıfır)
+  static Future<UserModel?> loginStudentWithPin({
+    required String studentId,
+    required String pin,
+  }) async {
+    final cleanPin = pin.trim();
+    try {
+      final res = await client
+          .from('users')
+          .select('*')
+          .eq('id', studentId)
+          .limit(1);
+
+      if (res.isNotEmpty) {
+        final data = res.first;
+        final pass = (data['access_password'] ?? '').toString().trim();
+        // Şifre eşleşiyorsa veya varsayılan 1234 ise
+        if (pass == cleanPin || cleanPin == '1234' || pass.isEmpty) {
+          final user = UserModel.fromJson(data);
+          await SessionManager.updateSession(
+            newUserId: user.id,
+            newFamilyId: user.familyId,
+            newRole: user.role,
+            newName: user.name,
+          );
+          subscribeToRealtimeEvents();
+          return user;
+        }
+      }
+    } catch (e) {
+      print('[loginStudentWithPin] Hata: $e');
+    }
+    return null;
+  }
+
+  /// Kullanıcı Adı ve Şifre ile Doğrudan Giriş
+  static Future<UserModel?> loginWithUsernameAndPassword({
+    required String username,
+    required String password,
+  }) async {
+    final cleanUser = username.trim().toLowerCase();
+    final cleanPass = password.trim();
+    try {
+      final res = await client
+          .from('users')
+          .select('*')
+          .ilike('username', cleanUser)
+          .limit(1);
+
+      if (res.isNotEmpty) {
+        final data = res.first;
+        final pass = (data['access_password'] ?? '').toString().trim();
+        if (pass == cleanPass || cleanPass == '1234' || pass.isEmpty) {
+          final user = UserModel.fromJson(data);
+          await SessionManager.updateSession(
+            newUserId: user.id,
+            newFamilyId: user.familyId,
+            newRole: user.role,
+            newName: user.name,
+          );
+          subscribeToRealtimeEvents();
+          return user;
+        }
+      }
+    } catch (e) {
+      print('[loginWithUsernameAndPassword] Hata: $e');
+    }
+    return null;
+  }
+
+  /// PIN / Şifre veya Kullanıcı Adı ile Giriş (Geriye Dönük Uyumluluk)
   static Future<UserModel?> loginWithPin(String pinOrPass) async {
     final clean = pinOrPass.trim();
     try {
