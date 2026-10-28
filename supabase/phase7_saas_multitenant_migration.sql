@@ -69,6 +69,35 @@ CREATE TABLE IF NOT EXISTS public.device_sessions (
 
 
 -- ----------------------------------------------------------------------------
+-- 2.1. CİHAZ EŞLEŞTİRME VE SÜRELİ PIN / QR TOKEN TABLOSU (DEVICE PAIRING TOKENS)
+-- ----------------------------------------------------------------------------
+-- Sabit PIN yerine 10 dakika geçerli, brute-force korumalı çift faktörlü
+-- eşleştirme (Aile Kodu + 6 Haneli PIN veya QR Kod).
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.device_pairing_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    family_id TEXT NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
+    child_user_id TEXT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    family_code TEXT NOT NULL,
+    pairing_pin TEXT NOT NULL,
+    qr_token TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '10 minutes'),
+    failed_attempts INT NOT NULL DEFAULT 0,
+    is_used BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_pairing_lookup 
+    ON public.device_pairing_tokens (upper(family_code), pairing_pin);
+
+CREATE INDEX IF NOT EXISTS idx_device_pairing_qr 
+    ON public.device_pairing_tokens (qr_token);
+
+CREATE INDEX IF NOT EXISTS idx_device_pairing_family 
+    ON public.device_pairing_tokens (family_id);
+
+
+-- ----------------------------------------------------------------------------
 -- 3. PRO / TRIAL KONTROL FONKSİYONU (is_family_pro)
 -- ----------------------------------------------------------------------------
 -- Reverse Trial (7 gün) veya aktif Pro aboneliği sorgular.
@@ -237,12 +266,312 @@ $$;
 
 
 -- ----------------------------------------------------------------------------
--- 6. MASAÜSTÜ EŞLEŞTİRME VE PRO PAKET DENETİMİ (verify_desktop_pairing_code)
+-- 6. KURUMSAL ÇİFT FAKTÖRLÜ GEÇİCİ EŞLEŞTİRME KODU ÜRETME (generate_device_pairing_token)
 -- ----------------------------------------------------------------------------
--- Windows PC Ajanı eşleşirken:
--- 1) Kod geçerli mi bakar.
--- 2) Aile Pro mu (veya 7 günlük denemede mi) denetler. Free ise reddeder.
--- 3) Geçerliyse kriptografik device_token üretir, device_sessions'a yazar.
+-- Ebeveyn ekranından çağrılır:
+-- 1) Öğrenci için 10 dakika geçerli rastgele 6 haneli pairing_pin üretir.
+-- 2) 32 karakterlik kriptografik tekil qr_token üretir.
+-- 3) Eski kullanılmamış token'ları pasife alır.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.generate_device_pairing_token(
+    p_child_user_id TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_child RECORD;
+    v_fam RECORD;
+    v_pin TEXT;
+    v_qr_token TEXT;
+    v_token_id UUID;
+BEGIN
+    SELECT * INTO v_child 
+    FROM public.users 
+    WHERE id = p_child_user_id AND role = 'child'
+    LIMIT 1;
+
+    IF v_child.id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error_code', 'CHILD_NOT_FOUND', 'message', 'Öğrenci profili bulunamadı.');
+    END IF;
+
+    SELECT * INTO v_fam 
+    FROM public.families 
+    WHERE id = v_child.family_id
+    LIMIT 1;
+
+    IF v_fam.id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error_code', 'FAMILY_NOT_FOUND', 'message', 'Aile kaydı bulunamadı.');
+    END IF;
+
+    -- Eski kullanılmamış tokenları pasife al
+    UPDATE public.device_pairing_tokens 
+    SET is_used = true 
+    WHERE child_user_id = p_child_user_id AND is_used = false;
+
+    -- 6 Haneli Sayısal Geçici PIN (Örn: 849201)
+    v_pin := lpad(floor(100000 + random() * 900000)::text, 6, '0');
+
+    -- 32 Karakterlik Kriptografik QR Hash (16 bytes = 32 hex chars)
+    v_qr_token := encode(gen_random_bytes(16), 'hex');
+
+    -- 10 Dakikalık Token Ekle
+    INSERT INTO public.device_pairing_tokens (
+        family_id,
+        child_user_id,
+        family_code,
+        pairing_pin,
+        qr_token,
+        expires_at,
+        failed_attempts,
+        is_used
+    ) VALUES (
+        v_fam.id,
+        v_child.id,
+        upper(trim(v_fam.family_code)),
+        v_pin,
+        v_qr_token,
+        NOW() + INTERVAL '10 minutes',
+        0,
+        false
+    ) RETURNING id INTO v_token_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'id', v_token_id,
+        'family_id', v_fam.id,
+        'child_user_id', v_child.id,
+        'child_name', v_child.name,
+        'family_code', upper(trim(v_fam.family_code)),
+        'pairing_pin', v_pin,
+        'qr_token', v_qr_token,
+        'expires_at', (NOW() + INTERVAL '10 minutes'),
+        'qr_payload', 'familyos://pair?qr=' || v_qr_token || '&fam=' || upper(trim(v_fam.family_code))
+    );
+END;
+$$;
+
+
+-- ----------------------------------------------------------------------------
+-- 6.1. BRUTE-FORCE KORUMALI ÇİFT FAKTÖRLÜ CİHAZ DOĞRULAMA (verify_device_pairing)
+-- ----------------------------------------------------------------------------
+-- Yöntem A: Aile Kodu + 6 Haneli PIN
+-- Yöntem B: 32 Karakterlik Mobil QR Token
+-- Brute-force koruması: 5 hatalı denemede token kilitlenir.
+-- 64 Karakterlik (32 byte) kriptografik device_session_token üretilir.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.verify_device_pairing(
+    p_family_code TEXT DEFAULT NULL,
+    p_pairing_pin TEXT DEFAULT NULL,
+    p_qr_token TEXT DEFAULT NULL,
+    p_device_type TEXT DEFAULT 'windows_pc',
+    p_device_name TEXT DEFAULT NULL,
+    p_device_id TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_token RECORD;
+    v_clean_fam_code TEXT := upper(regexp_replace(COALESCE(p_family_code, ''), '[^a-zA-Z0-9]', '', 'g'));
+    v_clean_pin TEXT := regexp_replace(COALESCE(p_pairing_pin, ''), '[^0-9]', '', 'g');
+    v_clean_qr TEXT := trim(COALESCE(p_qr_token, ''));
+    v_is_pro BOOLEAN;
+    v_device_token TEXT;
+    v_actual_device_id TEXT;
+    v_user RECORD;
+BEGIN
+    -- 1. Yöntem B: QR Token ile Arama
+    IF v_clean_qr <> '' THEN
+        SELECT * INTO v_token 
+        FROM public.device_pairing_tokens 
+        WHERE qr_token = v_clean_qr 
+        LIMIT 1;
+
+        IF v_token.id IS NULL THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error_code', 'NOT_FOUND',
+                'message', 'Geçersiz veya süresi dolmuş QR Kod!'
+            );
+        END IF;
+
+    -- 2. Yöntem A: Aile Kodu + 6 Haneli PIN ile Arama
+    ELSIF v_clean_fam_code <> '' THEN
+        -- Önce tam eşleşen kaydı ara
+        SELECT * INTO v_token 
+        FROM public.device_pairing_tokens 
+        WHERE upper(regexp_replace(family_code, '[^a-zA-Z0-9]', '', 'g')) = v_clean_fam_code 
+          AND pairing_pin = v_clean_pin
+          AND is_used = false
+        ORDER BY created_at DESC 
+        LIMIT 1;
+
+        -- Eşleşmediyse bu aileye ait aktif bir token var mı bul ve failed_attempts artır
+        IF v_token.id IS NULL THEN
+            SELECT * INTO v_token 
+            FROM public.device_pairing_tokens 
+            WHERE upper(regexp_replace(family_code, '[^a-zA-Z0-9]', '', 'g')) = v_clean_fam_code 
+              AND is_used = false 
+              AND expires_at > NOW()
+            ORDER BY created_at DESC 
+            LIMIT 1;
+
+            IF v_token.id IS NOT NULL THEN
+                UPDATE public.device_pairing_tokens 
+                SET failed_attempts = failed_attempts + 1 
+                WHERE id = v_token.id;
+
+                IF v_token.failed_attempts + 1 >= 5 THEN
+                    UPDATE public.device_pairing_tokens SET is_used = true WHERE id = v_token.id;
+                    RETURN jsonb_build_object(
+                        'success', false,
+                        'error_code', 'PAIRING_LOCKED_TOO_MANY_ATTEMPTS',
+                        'message', 'Çok fazla hatalı deneme yapıldı. Bu eşleştirme kodu kilitlendi! Lütfen ebeveyn uygulamasından yeni bir kod üretin.'
+                    );
+                END IF;
+
+                RETURN jsonb_build_object(
+                    'success', false,
+                    'error_code', 'INVALID_PIN',
+                    'message', 'Hatalı eşleştirme PIN kodu! Kalan deneme hakkı: ' || (5 - (v_token.failed_attempts + 1))::text
+                );
+            ELSE
+                RETURN jsonb_build_object(
+                    'success', false,
+                    'error_code', 'NOT_FOUND',
+                    'message', 'Geçerli bir eşleştirme talebi bulunamadı. Lütfen aile kodunuzu kontrol edin.'
+                );
+            END IF;
+        END IF;
+    ELSE
+        RETURN jsonb_build_object(
+            'success', false,
+            'error_code', 'MISSING_CREDENTIALS',
+            'message', 'Lütfen Aile Kodu ve 6 Haneli PIN kodunu girin veya QR kodu okutun.'
+        );
+    END IF;
+
+    -- 3. Token Durum Denetimleri
+    IF v_token.is_used THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error_code', 'TOKEN_ALREADY_USED',
+            'message', 'Bu eşleştirme kodu veya QR kod daha önce kullanılmış. Lütfen yenisini üretin.'
+        );
+    END IF;
+
+    IF v_token.expires_at <= NOW() THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error_code', 'TOKEN_EXPIRED',
+            'message', 'Bu eşleştirme kodunun 10 dakikalık süresi dolmuş. Lütfen ebeveyn uygulamasından yeni kod üretin.'
+        );
+    END IF;
+
+    IF v_token.failed_attempts >= 5 THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error_code', 'PAIRING_LOCKED_TOO_MANY_ATTEMPTS',
+            'message', 'Bu kod çok fazla hatalı deneme nedeniyle kilitlendi.'
+        );
+    END IF;
+
+    -- 4. Windows PC Ajanı İçin Pro Paket Kontrolü (Feature Gating)
+    IF p_device_type = 'windows_pc' THEN
+        v_is_pro := public.is_family_pro(v_token.family_id);
+        IF NOT v_is_pro THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error_code', 'PRO_REQUIRED_FOR_PC_AGENT',
+                'message', 'Windows PC Ajanı FamilyOS Pro paketine özeldir. Lütfen mobil uygulamadan paketinizi Pro''ya yükseltin.'
+            );
+        END IF;
+    END IF;
+
+    -- 5. Başarılı! Token'ı kullanıldı olarak işaretle
+    UPDATE public.device_pairing_tokens 
+    SET is_used = true 
+    WHERE id = v_token.id;
+
+    -- 6. Kriptografik 64 Karakterlik Güvenli Cihaz Oturum Anahtarı Üret (32 bytes = 64 hex chars)
+    v_device_token := 'dev-' || (CASE WHEN p_device_type = 'windows_pc' THEN 'pc-' ELSE 'ios-' END) || encode(gen_random_bytes(32), 'hex');
+    v_actual_device_id := COALESCE(p_device_id, 'dev-' || substr(v_device_token, 8, 12));
+
+    -- 7. devices Tablosuna Kaydet / Güncelle
+    INSERT INTO public.devices (
+        id,
+        family_id,
+        user_id,
+        device_name,
+        device_type,
+        is_online,
+        last_heartbeat,
+        last_activity_at
+    ) VALUES (
+        v_actual_device_id,
+        v_token.family_id,
+        v_token.child_user_id,
+        COALESCE(p_device_name, CASE WHEN p_device_type = 'windows_pc' THEN 'Windows PC' ELSE 'iPhone Kids' END),
+        CASE WHEN p_device_type = 'windows_pc' THEN 'windows_pc'::public.device_platform ELSE 'ios_phone'::public.device_platform END,
+        true,
+        NOW(),
+        NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        user_id = EXCLUDED.user_id,
+        family_id = EXCLUDED.family_id,
+        device_name = EXCLUDED.device_name,
+        is_online = true,
+        last_activity_at = NOW();
+
+    -- 8. device_sessions Tablosuna Mühürle
+    INSERT INTO public.device_sessions (
+        family_id,
+        user_id,
+        device_id,
+        device_name,
+        device_token,
+        device_type,
+        is_active
+    ) VALUES (
+        v_token.family_id,
+        v_token.child_user_id,
+        v_actual_device_id,
+        COALESCE(p_device_name, CASE WHEN p_device_type = 'windows_pc' THEN 'Windows PC' ELSE 'iPhone Kids' END),
+        v_device_token,
+        p_device_type,
+        true
+    );
+
+    -- 9. Öğrenci Bilgilerini Getir ve Döndür
+    SELECT id, name, role, magic_login_token, avatar_config, points_balance, piggy_bank_balance
+    INTO v_user
+    FROM public.users
+    WHERE id = v_token.child_user_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'user_id', v_user.id,
+        'family_id', v_token.family_id,
+        'family_code', v_token.family_code,
+        'name', v_user.name,
+        'role', v_user.role,
+        'magic_login_token', v_user.magic_login_token,
+        'device_token', v_device_token,
+        'device_id', v_actual_device_id,
+        'avatar_config', v_user.avatar_config
+    );
+END;
+$$;
+
+
+-- ----------------------------------------------------------------------------
+-- 6.2. GERİYE DÖNÜK UYUMLU MASAÜSTÜ EŞLEŞTİRME (verify_desktop_pairing_code)
+-- ----------------------------------------------------------------------------
+-- Önce yeni device_pairing_tokens tablosuna bakar, yoksa eski desktop_pairing_code'u dener.
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.verify_desktop_pairing_code(
     p_code TEXT,
@@ -254,8 +583,10 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    v_user RECORD;
     v_clean_code TEXT;
+    v_token RECORD;
+    v_res JSONB;
+    v_user RECORD;
     v_device_token TEXT;
     v_is_pro BOOLEAN;
 BEGIN
@@ -269,7 +600,26 @@ BEGIN
         );
     END IF;
 
-    -- Kullanıcıyı bul
+    -- 1. Önce aktif geçici device_pairing_tokens tablosunda ara
+    SELECT * INTO v_token 
+    FROM public.device_pairing_tokens 
+    WHERE pairing_pin = regexp_replace(v_clean_code, '[^0-9]', '', 'g')
+      AND is_used = false 
+      AND expires_at > NOW()
+    ORDER BY created_at DESC 
+    LIMIT 1;
+
+    IF v_token.id IS NOT NULL THEN
+        RETURN public.verify_device_pairing(
+            p_family_code := v_token.family_code,
+            p_pairing_pin := v_token.pairing_pin,
+            p_device_type := 'windows_pc',
+            p_device_name := p_device_name,
+            p_device_id := p_device_id
+        );
+    END IF;
+
+    -- 2. Eski kalıcı desktop_pairing_code (Fallback)
     SELECT id, family_id, name, role, magic_login_token, avatar_config, points_balance, piggy_bank_balance
     INTO v_user
     FROM public.users
@@ -280,7 +630,7 @@ BEGIN
         RETURN jsonb_build_object(
             'success', false, 
             'error_code', 'NOT_FOUND',
-            'message', 'Eşleşen öğrenci veya cihaz kodu bulunamadı!'
+            'message', 'Eşleşen aktif eşleştirme kodu bulunamadı!'
         );
     END IF;
 
@@ -294,10 +644,9 @@ BEGIN
         );
     END IF;
 
-    -- Kriptografik cihaz oturum anahtarı üret
-    v_device_token := 'dev-pc-' || encode(gen_random_bytes(24), 'hex');
+    -- Kriptografik cihaz oturum anahtarı üret (64 karakter)
+    v_device_token := 'dev-pc-' || encode(gen_random_bytes(32), 'hex');
 
-    -- Eski oturumu pasife al, yeni oturum aç
     UPDATE public.device_sessions
     SET is_active = false
     WHERE user_id = v_user.id AND device_type = 'windows_pc' AND is_active = true;
@@ -609,7 +958,7 @@ DECLARE
     tbl TEXT;
 BEGIN
     FOR tbl IN SELECT unnest(ARRAY[
-        'device_sessions', 'devices', 'tasks', 'task_submissions',
+        'device_pairing_tokens', 'device_sessions', 'devices', 'tasks', 'task_submissions',
         'rewards', 'reward_redemptions', 'messages', 'violation_logs',
         'school_schedules', 'family_settings', 'appeals', 'qr_stations'
     ])
@@ -634,6 +983,8 @@ END $$;
 GRANT EXECUTE ON FUNCTION public.is_family_pro(TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_current_family_id() TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_current_user_id() TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.generate_device_pairing_token(TEXT) TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.verify_device_pairing(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.verify_desktop_pairing_code(TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.pair_child_device(TEXT, TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.delete_family_account() TO authenticated, anon;

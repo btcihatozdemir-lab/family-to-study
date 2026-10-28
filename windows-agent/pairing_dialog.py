@@ -170,13 +170,28 @@ class DevicePairingDialog(QDialog):
 
         # Açıklama metni
         desc_lbl = QLabel(
-            "Ebeveyn panelinizde öğrencinin kartında yer alan 6 haneli Masaüstü Kodunu girin (Örn: 849-201):"
+            "Ebeveyn panelinizde öğrencinin profilinden alacağınız Aile Kodu ve 10 dakika geçerli Geçici PIN'i girin:"
         )
         desc_lbl.setWordWrap(True)
         desc_lbl.setStyleSheet("font-size: 12px; color: #94a3b8; line-height: 1.4;")
         layout.addWidget(desc_lbl)
 
-        # 6 Haneli Kod Girişi
+        # 1. Aile Kodu Girişi
+        lbl_fam = QLabel("1. Aile Kodu:")
+        lbl_fam.setStyleSheet("font-size: 12px; font-weight: bold; color: #cbd5e1;")
+        layout.addWidget(lbl_fam)
+
+        self.input_family_code = QLineEdit()
+        self.input_family_code.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.input_family_code.setPlaceholderText("Örn: FAM-9X2A veya FAMZDE-2026")
+        self.input_family_code.setStyleSheet("font-size: 16px; font-weight: bold; padding: 8px; color: #38bdf8; letter-spacing: 1px;")
+        layout.addWidget(self.input_family_code)
+
+        # 2. 6 Haneli Geçici PIN Girişi
+        lbl_pin = QLabel("2. 6 Haneli Geçici PIN (10 Dk Geçerli):")
+        lbl_pin.setStyleSheet("font-size: 12px; font-weight: bold; color: #cbd5e1;")
+        layout.addWidget(lbl_pin)
+
         self.input_code = QLineEdit()
         self.input_code.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.input_code.setPlaceholderText("849-201")
@@ -197,7 +212,7 @@ class DevicePairingDialog(QDialog):
         layout.addWidget(self.btn_submit)
 
         # Bilgilendirme Notu
-        info_footer = QLabel("🔒 Bir kez bağlandığında cihaz kalıcı mühürlenir; bir daha asla şifre sormaz.")
+        info_footer = QLabel("🔒 5 hatalı denemede kod güvenlik nedeniyle kilitlenir.")
         info_footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_footer.setStyleSheet("font-size: 10px; color: #64748b; font-style: italic;")
         layout.addWidget(info_footer)
@@ -220,6 +235,7 @@ class DevicePairingDialog(QDialog):
             self.input_code.blockSignals(False)
 
     def _handle_submit(self) -> None:
+        fam_code = self.input_family_code.text().strip().upper()
         raw_code = self.input_code.text().strip()
         clean_code = raw_code.replace("-", "").replace(" ", "")
 
@@ -228,7 +244,7 @@ class DevicePairingDialog(QDialog):
             return
 
         self.lbl_status.setStyleSheet("font-size: 11px; color: #38bdf8; font-weight: bold;")
-        self.lbl_status.setText("⏳ Kod doğrulanıyor, lütfen bekleyin...")
+        self.lbl_status.setText("⏳ Çift faktörlü eşleştirme doğrulanıyor...")
         self.btn_submit.setEnabled(False)
 
         try:
@@ -236,8 +252,8 @@ class DevicePairingDialog(QDialog):
         except Exception:
             pass
 
-        # Supabase verify_desktop_pairing_code RPC çağrısı
-        res = CONFIG.pair_with_code(clean_code)
+        # Çift faktörlü verify_device_pairing veya fallback RPC çağrısı
+        res = CONFIG.pair_with_code(pairing_code=clean_code, family_code=fam_code)
 
         if res.get("success"):
             data = res.get("data", {})
@@ -291,6 +307,12 @@ class DevicePairingDialog(QDialog):
             if err_code == "PRO_REQUIRED_FOR_PC_AGENT":
                 self.lbl_status.setStyleSheet("font-size: 11px; color: #fbbf24; font-weight: bold;")
                 self.lbl_status.setText("⭐ Windows PC Ajanı FamilyOS Pro paketine özeldir.\nLütfen mobil uygulamadan Pro üyeliğe geçin.")
+            elif err_code == "PAIRING_LOCKED_TOO_MANY_ATTEMPTS":
+                self.lbl_status.setStyleSheet("font-size: 11px; color: #f43f5e; font-weight: bold;")
+                self.lbl_status.setText("🔒 Çok fazla hatalı deneme! Bu kod kilitlendi.\nLütfen ebeveyn uygulamasından yeni kod üretin.")
+            elif err_code == "TOKEN_EXPIRED":
+                self.lbl_status.setStyleSheet("font-size: 11px; color: #f59e0b; font-weight: bold;")
+                self.lbl_status.setText("⌛ Kodun 10 dakikalık süresi dolmuş.\nLütfen ebeveyn uygulamasından yeni kod alın.")
             else:
                 self.lbl_status.setStyleSheet("font-size: 11px; color: #f43f5e; font-weight: bold;")
                 self.lbl_status.setText(f"❌ {res.get('message', 'Eşleştirme kodu geçersiz!')}")

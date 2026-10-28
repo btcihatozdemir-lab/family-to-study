@@ -148,12 +148,111 @@ class SupabaseService {
   // AUTH VE KULLANICI İŞLEMLERİ
   // ---------------------------------------------------------------------------
 
-  /// 6 Haneli Eşleştirme Kodu (Örn: 849-201) ile Giriş
-  static Future<UserModel?> loginWithPairingCode(String rawCode) async {
-    final cleanCode = rawCode.replaceAll('-', '').replaceAll(' ', '').trim();
+  /// Ebeveyn İçin: 10 Dakikalık Çift Faktörlü Eşleştirme Kodu & QR Token Üret
+  static Future<Map<String, dynamic>?> generateDevicePairingToken(String childUserId) async {
     try {
+      final res = await client.rpc('generate_device_pairing_token', params: {
+        'p_child_user_id': childUserId,
+      });
+      if (res != null && res['success'] == true) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      print('[generateDevicePairingToken] Hata: $e');
+    }
+    return null;
+  }
+
+  /// Kurumsal Çift Faktörlü & QR Cihaz Doğrulama (verify_device_pairing)
+  static Future<UserModel?> verifyDevicePairing({
+    String? familyCode,
+    String? pairingPin,
+    String? qrToken,
+    String deviceType = 'ios_phone',
+    String? deviceName,
+    String? deviceId,
+  }) async {
+    try {
+      final res = await client.rpc('verify_device_pairing', params: {
+        'p_family_code': familyCode,
+        'p_pairing_pin': pairingPin,
+        'p_qr_token': qrToken,
+        'p_device_type': deviceType,
+        'p_device_name': deviceName ?? 'iPhone Kids',
+        'p_device_id': deviceId,
+      });
+
+      if (res != null && res['success'] == true) {
+        final userId = res['user_id']?.toString() ?? '';
+        final famId = res['family_id']?.toString() ?? '';
+        final token = res['magic_login_token']?.toString() ?? '';
+        final deviceToken = res['device_token']?.toString() ?? '';
+
+        if (deviceToken.isNotEmpty) {
+          setDeviceToken(deviceToken);
+        }
+
+        final user = await fetchStudentProfile(userId);
+        if (user != null) {
+          await SessionManager.updateSession(
+            newUserId: user.id,
+            newFamilyId: famId,
+            newRole: user.role,
+            newName: user.name,
+            newRoleTitle: user.roleTitle,
+            newGender: user.gender,
+            newIsPrimaryAdmin: user.isPrimaryAdmin,
+            newToken: token,
+            newDeviceToken: deviceToken,
+          );
+          subscribeToRealtimeEvents();
+          return user;
+        }
+      } else if (res != null) {
+        print('[verifyDevicePairing] Hata: ${res['message']} (Kod: ${res['error_code']})');
+      }
+    } catch (e) {
+      print('[verifyDevicePairing] Hata: $e');
+    }
+    return null;
+  }
+
+  /// 6 Haneli Eşleştirme Kodu, Çift Kod veya QR Token ile Giriş
+  static Future<UserModel?> loginWithPairingCode(String rawCode) async {
+    final cleanInput = rawCode.trim();
+    if (cleanInput.isEmpty) return null;
+
+    try {
+      // 1. QR Kod Çözümleme (Örn: "familyos://pair?qr=...&fam=..." veya doğrudan 32 haneli token)
+      if (cleanInput.contains('qr=') || (cleanInput.length == 32 && !cleanInput.contains('-'))) {
+        String qrToken = cleanInput;
+        if (cleanInput.contains('qr=')) {
+          final uri = Uri.tryParse(cleanInput);
+          qrToken = uri?.queryParameters['qr'] ?? cleanInput.split('qr=').last.split('&').first;
+        }
+        final qrUser = await verifyDevicePairing(qrToken: qrToken);
+        if (qrUser != null) return qrUser;
+      }
+
+      // 2. Çift Kod Çözümleme (Örn: "FAM-9X2A:849201" veya "FAM-9X2A 849201")
+      if (cleanInput.contains(':') || cleanInput.contains(' ')) {
+        final parts = cleanInput.split(RegExp(r'[:\s]+'));
+        if (parts.length >= 2) {
+          final famCode = parts[0].trim();
+          final pin = parts[1].replaceAll('-', '').trim();
+          final dualUser = await verifyDevicePairing(familyCode: famCode, pairingPin: pin);
+          if (dualUser != null) return dualUser;
+        }
+      }
+
+      // 3. Tekil 6 Haneli PIN ile verify_device_pairing denemesi
+      final cleanPin = cleanInput.replaceAll('-', '').replaceAll(' ', '').trim();
+      final pinUser = await verifyDevicePairing(pairingPin: cleanPin);
+      if (pinUser != null) return pinUser;
+
+      // 4. Eski verify_desktop_pairing_code fallback
       final res = await client.rpc('verify_desktop_pairing_code', params: {
-        'p_code': cleanCode,
+        'p_code': cleanPin,
       });
 
       if (res != null && res['success'] == true) {

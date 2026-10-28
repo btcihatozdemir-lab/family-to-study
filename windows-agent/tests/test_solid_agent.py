@@ -220,6 +220,12 @@ class TestSolidArchitecture(unittest.TestCase):
         )
         self.assertEqual(svc.device_token, "dev-pc-token-12345")
 
+    def test_config_dual_pairing_methods_exist(self) -> None:
+        """AgentConfig hem çift faktörlü pair_device hem de pair_with_code metodlarına sahip olmalıdır."""
+        from config import CONFIG
+        self.assertTrue(hasattr(CONFIG, "pair_device"))
+        self.assertTrue(hasattr(CONFIG, "pair_with_code"))
+
 
 if __name__ == "__main__":
     unittest.main()
