@@ -25,18 +25,24 @@ const String kAppFlavor = String.fromEnvironment('APP_FLAVOR', defaultValue: '')
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Ortak Servisleri Başlat
-  await SessionManager.init();
-  await NotificationService.init();
-  await SupabaseService.init();
+  // 1. Ortak Servisleri Güvenle Başlat
+  try {
+    await SessionManager.init();
+  } catch (e) {
+    print('[Main] SessionManager init error: $e');
+  }
+
+  try {
+    await SupabaseService.init();
+  } catch (e) {
+    print('[Main] Supabase init error: $e');
+  }
 
   // Flavor bayrağı doğrudan verilmişse doğrudan ilgili uygulamayı başlat
   if (kAppFlavor.toLowerCase() == 'fam') {
     runApp(const FamApp());
     return;
   } else if (kAppFlavor.toLowerCase() == 'kids') {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    await AudioKeepAliveService.startKeepAliveLoop();
     runApp(const KidsApp());
     return;
   }

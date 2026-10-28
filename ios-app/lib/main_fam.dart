@@ -21,14 +21,20 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 1. Yerel Hafızayı Yükle
-  await SessionManager.init();
+  try {
+    await SessionManager.init();
+  } catch (e) {
+    print('[MainFam] SessionManager init error: $e');
+  }
 
-  // 2. Bildirim Motorunu Başlat
-  await NotificationService.init();
+  // 2. Supabase İstemcisini Başlat
+  try {
+    await SupabaseService.init();
+  } catch (e) {
+    print('[MainFam] Supabase init error: $e');
+  }
 
-  // 3. Supabase Realtime Servisini Başlat
-  await SupabaseService.init();
-
+  // UI'ı hemen başlat
   runApp(const FamApp());
 }
 
@@ -47,25 +53,40 @@ class _FamAppState extends State<FamApp> {
   void initState() {
     super.initState();
     _bootstrap();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await NotificationService.init();
+        await NotificationService.requestPermissions();
+      } catch (e) {
+        print('[FamApp] Notification deferred init error: $e');
+      }
+    });
   }
 
   Future<void> _bootstrap() async {
-    if (SessionManager.isLoggedIn && SessionManager.userId.isNotEmpty) {
-      final user = await SupabaseService.fetchStudentProfile(SessionManager.userId);
+    try {
+      if (SessionManager.isLoggedIn && SessionManager.userId.isNotEmpty) {
+        final user = await SupabaseService.fetchStudentProfile(SessionManager.userId)
+            .timeout(const Duration(seconds: 3), onTimeout: () => null);
+        if (mounted) {
+          setState(() {
+            _parentUser = (user != null && user.role == 'parent') ? user : null;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    } catch (e) {
+      print('[FamApp] Bootstrap error: $e');
       if (mounted) {
         setState(() {
-          // Sadece ebeveyn ise oturumu koru
-          if (user != null && user.role == 'parent') {
-            _parentUser = user;
-          } else {
-            _parentUser = null;
-          }
+          _parentUser = null;
           _isLoading = false;
         });
-      }
-    } else {
-      if (mounted) {
-        setState(() => _isLoading = false);
       }
     }
   }

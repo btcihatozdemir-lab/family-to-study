@@ -22,21 +22,28 @@ import 'screens/kids/kids_home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Tam Ekran Oyun & Odak Modu: Durum Çubuğunu Gizle
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  // Tam Ekran Oyun & Odak Modu
+  try {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  } catch (e) {
+    print('[Main] UI Mode warning: $e');
+  }
 
-  // 1. Yerel Hafızayı Yükle
-  await SessionManager.init();
+  // 1. Yerel Hafıza Oturumunu Yükle
+  try {
+    await SessionManager.init();
+  } catch (e) {
+    print('[Main] SessionManager init error: $e');
+  }
 
-  // 2. Kilit Ekranı Bildirim Motorunu Başlat
-  await NotificationService.init();
+  // 2. Supabase İstemcisini Başlat
+  try {
+    await SupabaseService.init();
+  } catch (e) {
+    print('[Main] Supabase init error: $e');
+  }
 
-  // 3. 7/24 Arka Plan Canlı Tutucu Sessiz Ses Motorunu Başlat
-  await AudioKeepAliveService.startKeepAliveLoop();
-
-  // 4. Supabase Realtime WebSocket Ağını Başlat
-  await SupabaseService.init();
-
+  // UI'ı hemen başlat (Splash/Mavi ekranda takılmayı kesin olarak önler)
   runApp(const KidsApp());
 }
 
@@ -56,6 +63,22 @@ class _KidsAppState extends State<KidsApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _bootstrap();
+
+    // Arka plan servislerini UI ilk karesi çizildikten sonra güvenle başlat
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await NotificationService.init();
+        await NotificationService.requestPermissions();
+      } catch (e) {
+        print('[KidsApp] Notification deferred init error: $e');
+      }
+
+      try {
+        await AudioKeepAliveService.startKeepAliveLoop();
+      } catch (e) {
+        print('[KidsApp] AudioKeepAlive deferred start error: $e');
+      }
+    });
   }
 
   @override
@@ -65,22 +88,29 @@ class _KidsAppState extends State<KidsApp> with WidgetsBindingObserver {
   }
 
   Future<void> _bootstrap() async {
-    if (SessionManager.isLoggedIn && SessionManager.userId.isNotEmpty) {
-      final user = await SupabaseService.fetchStudentProfile(SessionManager.userId);
+    try {
+      if (SessionManager.isLoggedIn && SessionManager.userId.isNotEmpty) {
+        // En fazla 3 saniye bekle; ağ yavaşsa bile ekranın kilitli kalmasını önle
+        final user = await SupabaseService.fetchStudentProfile(SessionManager.userId)
+            .timeout(const Duration(seconds: 3), onTimeout: () => null);
+        if (mounted) {
+          setState(() {
+            _student = (user != null && user.role != 'parent') ? user : null;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    } catch (e) {
+      print('[KidsApp] Bootstrap hatası: $e');
       if (mounted) {
         setState(() {
-          // Sadece öğrenci ise oturumu koru
-          if (user != null && user.role != 'parent') {
-            _student = user;
-          } else {
-            _student = null;
-          }
+          _student = null;
           _isLoading = false;
         });
-      }
-    } else {
-      if (mounted) {
-        setState(() => _isLoading = false);
       }
     }
   }

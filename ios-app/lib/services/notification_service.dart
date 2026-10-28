@@ -5,31 +5,41 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static Future<void> init() async {
-    const darwinInit = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-      defaultPresentAlert: true,
-      defaultPresentBadge: true,
-      defaultPresentSound: true,
-    );
+    try {
+      const darwinInit = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+        defaultPresentAlert: true,
+        defaultPresentBadge: true,
+        defaultPresentSound: true,
+      );
 
-    const initSettings = InitializationSettings(
-      iOS: darwinInit,
-      macOS: darwinInit,
-    );
+      const initSettings = InitializationSettings(
+        iOS: darwinInit,
+        macOS: darwinInit,
+      );
 
-    await _notifications.initialize(initSettings);
+      await _notifications.initialize(initSettings);
+    } catch (e) {
+      print('[NotificationService] Başlatma uyarısı: $e');
+    }
+  }
 
-    // iOS 15.8+ & iOS 16/17/18 için izin isteme
-    await _notifications
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
+  /// Kullanıcı arayüzü ekrana geldikten sonra bildirim izinlerini güvenle talep eder
+  static Future<void> requestPermissions() async {
+    try {
+      await _notifications
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+    } catch (e) {
+      print('[NotificationService] İzin isteme uyarısı: $e');
+    }
   }
 
   static Future<void> showNotification({

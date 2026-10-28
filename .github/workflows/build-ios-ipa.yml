@@ -68,18 +68,22 @@ jobs:
         run: |
           cd ios-app
           flutter build ios --release --no-codesign -t lib/main_kids.dart
-          mkdir -p Payload_Kids
-          cp -r build/ios/iphoneos/Runner.app Payload_Kids/
-          zip -r -q FamilyToStudy_Kids_iOS15.ipa Payload_Kids
+          rm -rf Payload
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r -q FamilyToStudy_Kids_iOS15.ipa Payload
+          rm -rf Payload
           ls -lh FamilyToStudy_Kids_iOS15.ipa
 
       - name: Build FamilyToStudy Fam Modern iOS Release (Unsigned)
         run: |
           cd ios-app
           flutter build ios --release --no-codesign -t lib/main_fam.dart
-          mkdir -p Payload_Fam
-          cp -r build/ios/iphoneos/Runner.app Payload_Fam/
-          zip -r -q FamilyToStudy_Fam_iOS.ipa Payload_Fam
+          rm -rf Payload
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r -q FamilyToStudy_Fam_iOS.ipa Payload
+          rm -rf Payload
           ls -lh FamilyToStudy_Fam_iOS.ipa
 
       - name: Upload Kids iOS 15.8+ .IPA Artifact
