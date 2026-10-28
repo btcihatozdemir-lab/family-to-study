@@ -47,6 +47,7 @@ except ImportError:
 
 from config import (
     BASE_DIR,
+    ASSETS_DIR,
     CONFIG,
     LOCAL_CACHE,
     has_device_auth,
@@ -63,7 +64,11 @@ class DevicePairingDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("FamilyOS • Bilgisayar Eşleştirme (Faz 6)")
         self.setFixedSize(480, 310)
-        icon_cand = BASE_DIR / "assets" / "kids.ico"
+        icon_cand = ASSETS_DIR / "kids.ico"
+        if not icon_cand.exists():
+            icon_cand = ASSETS_DIR / "kids-logo.png"
+        if not icon_cand.exists():
+            icon_cand = BASE_DIR / "assets" / "kids.ico"
         if not icon_cand.exists():
             icon_cand = BASE_DIR / "assets" / "kids-logo.png"
         if icon_cand.exists():
@@ -126,7 +131,9 @@ class DevicePairingDialog(QDialog):
 
         # Başlık ve İkon
         header_layout = QHBoxLayout()
-        pix_path = BASE_DIR / "assets" / "kids-logo.png"
+        pix_path = ASSETS_DIR / "kids-logo.png"
+        if not pix_path.exists():
+            pix_path = BASE_DIR / "assets" / "kids-logo.png"
         icon_lbl = None
         if pix_path.exists():
             try:

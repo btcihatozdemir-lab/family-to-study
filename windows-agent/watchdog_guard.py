@@ -132,9 +132,12 @@ def spawn_main_agent() -> subprocess.Popen:
     """Ana ajanı (main.py / FamilyOS_Agent.exe) penceresiz veya normal süreç olarak başlatır."""
     main_py = str(BASE_DIR / "main.py")
     if getattr(sys, "frozen", False):
-        exe_path = sys.executable.replace("watchdog_guard.exe", "FamilyOS_Agent.exe")
-        if not os.path.exists(exe_path):
-            exe_path = sys.executable
+        exe_dir = Path(sys.executable).resolve().parent
+        candidate = exe_dir / "FamilyOS_Agent.exe"
+        if candidate.exists():
+            exe_path = str(candidate)
+        else:
+            exe_path = sys.executable.replace("FamilyOS_Guard.exe", "FamilyOS_Agent.exe").replace("watchdog_guard.exe", "FamilyOS_Agent.exe")
         cmd = [exe_path]
     else:
         python_exe = sys.executable

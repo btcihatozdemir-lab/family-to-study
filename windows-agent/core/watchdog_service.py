@@ -74,12 +74,16 @@ class TwinWatchdogManager(IWatchdogManager):
         return True
 
     def _spawn_guard_process(self) -> None:
+        guard_exe = self.base_dir / "FamilyOS_Guard.exe"
         guard_script = self.base_dir / "watchdog_guard.py"
-        if not guard_script.exists():
-            print(f"[WatchdogService] Nöbetçi betiği bulunamadı: {guard_script}")
-            return
 
-        cmd = [sys.executable, str(guard_script), "--target-pid", str(self.main_pid)]
+        if guard_exe.exists():
+            cmd = [str(guard_exe), "--target-pid", str(self.main_pid)]
+        elif guard_script.exists():
+            cmd = [sys.executable, str(guard_script), "--target-pid", str(self.main_pid)]
+        else:
+            print(f"[WatchdogService] Nöbetçi yürütülebiliri veya betiği bulunamadı: {guard_exe} / {guard_script}")
+            return
         kwargs: dict = {
             "cwd": str(self.base_dir),
             "close_fds": True,

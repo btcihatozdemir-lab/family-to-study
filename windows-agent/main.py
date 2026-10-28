@@ -20,6 +20,7 @@ import traceback
 
 from config import (
     BASE_DIR,
+    ASSETS_DIR,
     CONFIG,
 )
 from system_hooks import register_windows_startup
@@ -51,7 +52,11 @@ def main() -> int:
         app = QApplication(sys.argv)
         app.setQuitOnLastWindowClosed(False)
 
-        icon_candidate = BASE_DIR / "assets" / "kids.ico"
+        icon_candidate = ASSETS_DIR / "kids.ico"
+        if not icon_candidate.exists():
+            icon_candidate = ASSETS_DIR / "kids-logo.png"
+        if not icon_candidate.exists():
+            icon_candidate = BASE_DIR / "assets" / "kids.ico"
         if not icon_candidate.exists():
             icon_candidate = BASE_DIR / "assets" / "kids-logo.png"
         if icon_candidate.exists():

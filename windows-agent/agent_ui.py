@@ -69,6 +69,7 @@ from config import (
     CONFIG,
     LOCAL_CACHE,
     BASE_DIR,
+    ASSETS_DIR,
     has_device_auth,
     load_device_auth,
 )
@@ -565,7 +566,11 @@ class StudentEndpointWindow(QMainWindow):
 
         # Pencere ve Arayüz Kurulumu
         self._setup_window_flags()
-        icon_cand = BASE_DIR / "assets" / "kids.ico"
+        icon_cand = ASSETS_DIR / "kids.ico"
+        if not icon_cand.exists():
+            icon_cand = ASSETS_DIR / "kids-logo.png"
+        if not icon_cand.exists():
+            icon_cand = BASE_DIR / "assets" / "kids.ico"
         if not icon_cand.exists():
             icon_cand = BASE_DIR / "assets" / "kids-logo.png"
         if icon_cand.exists():

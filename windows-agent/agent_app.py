@@ -60,7 +60,7 @@ class AgentApp:
 
         self.telemetry = telemetry or SupabaseTelemetryService(
             supabase_url=CONFIG.supabase_url,
-            supabase_key=CONFIG.supabase_key,
+            supabase_key=CONFIG.supabase_anon_key,
             user_id=user_id,
             family_id=family_id,
             device_id=CONFIG.device_id,

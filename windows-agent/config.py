@@ -46,7 +46,14 @@ try:
 except Exception:
     pass
 
-BASE_DIR = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys.executable).resolve().parent
+    BUNDLE_DIR = Path(getattr(sys, "_MEIPASS", BASE_DIR)).resolve()
+else:
+    BASE_DIR = Path(__file__).resolve().parent
+    BUNDLE_DIR = BASE_DIR
+
+ASSETS_DIR = BUNDLE_DIR / "assets" if (BUNDLE_DIR / "assets").exists() else BASE_DIR / "assets"
 
 # .env dosyasını hem kök dizinden hem de agent dizininden yükle
 try:
@@ -127,6 +134,11 @@ class AgentConfig:
         or BUILD_SUPABASE_ANON_KEY
         or "sb_publishable_J9zEygp-UY48F0QYIM0gKg_BFg3KlTD"
     )
+
+    @property
+    def supabase_key(self) -> str:
+        """supabase_key alias for supabase_anon_key."""
+        return self.supabase_anon_key
 
     # Gömülü QWebEngineView içinde gösterilecek PWA Adresi
     pwa_url: str = (
