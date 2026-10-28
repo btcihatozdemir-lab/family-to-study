@@ -67,6 +67,14 @@ jobs:
       - name: Build FamilyToStudy Kids iOS 15.8+ Release (Unsigned)
         run: |
           cd ios-app
+          # Apply Kids Custom App Icon
+          mkdir -p ios/Runner/Assets.xcassets/AppIcon.appiconset
+          cp -rf ios_icons/kids/AppIcon.appiconset/* ios/Runner/Assets.xcassets/AppIcon.appiconset/
+          
+          # Set Kids Display Name & Bundle Identifier
+          sed -i '' 's/<string>FamilyToStudy<\/string>/<string>Family Kids<\/string>/g' ios/Runner/Info.plist 2>/dev/null || true
+          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = [^;]*;/PRODUCT_BUNDLE_IDENTIFIER = com.familytostudy.kids;/g' ios/Runner.xcodeproj/project.pbxproj 2>/dev/null || true
+
           flutter build ios --release --no-codesign -t lib/main_kids.dart
           rm -rf Payload
           mkdir -p Payload
@@ -78,6 +86,15 @@ jobs:
       - name: Build FamilyToStudy Fam Modern iOS Release (Unsigned)
         run: |
           cd ios-app
+          # Apply Fam Custom App Icon
+          mkdir -p ios/Runner/Assets.xcassets/AppIcon.appiconset
+          cp -rf ios_icons/fam/AppIcon.appiconset/* ios/Runner/Assets.xcassets/AppIcon.appiconset/
+          
+          # Set Fam Display Name & Bundle Identifier
+          sed -i '' 's/<string>Family Kids<\/string>/<string>Family Fam<\/string>/g' ios/Runner/Info.plist 2>/dev/null || true
+          sed -i '' 's/<string>FamilyToStudy<\/string>/<string>Family Fam<\/string>/g' ios/Runner/Info.plist 2>/dev/null || true
+          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = [^;]*;/PRODUCT_BUNDLE_IDENTIFIER = com.familytostudy.fam;/g' ios/Runner.xcodeproj/project.pbxproj 2>/dev/null || true
+
           flutter build ios --release --no-codesign -t lib/main_fam.dart
           rm -rf Payload
           mkdir -p Payload
