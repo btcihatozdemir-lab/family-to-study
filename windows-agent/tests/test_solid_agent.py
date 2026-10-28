@@ -208,6 +208,18 @@ class TestSolidArchitecture(unittest.TestCase):
         summary = sm.get_profile_summary()
         self.assertEqual(summary["points"], 55)
 
+    def test_telemetry_service_initialization_with_device_token(self) -> None:
+        """SupabaseTelemetryService cihaz tokenini doğru şekilde kabul etmelidir."""
+        svc = SupabaseTelemetryService(
+            supabase_url="https://dummy.supabase.co",
+            supabase_key="dummy-key",
+            user_id="child-test",
+            family_id="fam-test",
+            device_id="dev-test-pc",
+            device_token="dev-pc-token-12345",
+        )
+        self.assertEqual(svc.device_token, "dev-pc-token-12345")
+
 
 if __name__ == "__main__":
     unittest.main()

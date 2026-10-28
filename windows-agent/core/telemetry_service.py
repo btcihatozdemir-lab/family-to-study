@@ -37,6 +37,7 @@ class SupabaseTelemetryService(ITelemetryService):
         user_id: str,
         family_id: str,
         device_id: str,
+        device_token: Optional[str] = None,
         on_remote_state_change: Optional[Callable[[AgentState, int, str], None]] = None,
     ) -> None:
         self.supabase_url = supabase_url
@@ -44,6 +45,7 @@ class SupabaseTelemetryService(ITelemetryService):
         self.user_id = user_id
         self.family_id = family_id
         self.device_id = device_id
+        self.device_token = device_token or ""
         self._on_remote_state_change = on_remote_state_change
 
         self._client: Optional[Any] = None
@@ -53,6 +55,12 @@ class SupabaseTelemetryService(ITelemetryService):
         if create_client and supabase_url and supabase_key:
             try:
                 self._client = create_client(supabase_url, supabase_key)
+                if self._client and self.device_token:
+                    # RLS resolver'a x-device-token header'ını iliştir
+                    if hasattr(self._client, "postgrest") and hasattr(self._client.postgrest, "headers"):
+                        self._client.postgrest.headers["x-device-token"] = self.device_token
+                    elif hasattr(self._client, "options") and hasattr(self._client.options, "headers"):
+                        self._client.options.headers["x-device-token"] = self.device_token
             except Exception as e:
                 print(f"[TelemetryService] Supabase başlatma uyarısı: {e}")
 

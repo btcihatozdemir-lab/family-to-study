@@ -152,6 +152,7 @@ class AgentConfig:
     family_id: str = os.getenv("FAMILY_ID", "fam-ozdemir")
     user_id: str = os.getenv("STUDENT_USER_ID", "child-omer")
     device_id: str = os.getenv("DEVICE_ID", "dev-omer-pc")
+    device_token: str = ""
     device_name: str = os.getenv(
         "DEVICE_NAME",
         f"{socket.gethostname()} (Windows PC)",
@@ -238,6 +239,7 @@ class AgentConfig:
         if auth_data and auth_data.get("user_id") and auth_data.get("family_id"):
             instance.user_id = str(auth_data["user_id"])
             instance.family_id = str(auth_data["family_id"])
+            instance.device_token = str(auth_data.get("device_token", ""))
             instance.is_paired = True
             token = auth_data.get("magic_login_token")
             if token:
@@ -272,6 +274,8 @@ class AgentConfig:
                     self.user_id = data.get("user_id", self.user_id)
                     self.family_id = data.get("family_id", self.family_id)
                     token = data.get("magic_login_token", "")
+                    device_token = data.get("device_token", "")
+                    self.device_token = device_token
                     if token:
                         clean_pwa = self.pwa_url.split("?")[0].rstrip("/") + "/"
                         self.pwa_url = f"{clean_pwa}?u={token}&auto_auth=true"
@@ -282,6 +286,7 @@ class AgentConfig:
                         "user_id": self.user_id,
                         "family_id": self.family_id,
                         "magic_login_token": token,
+                        "device_token": device_token,
                         "student_name": data.get("name", "Öğrenci"),
                         "device_id": self.device_id,
                         "paired_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -307,7 +312,11 @@ class AgentConfig:
                         print(f"[Config] Offline PIN hash senkronizasyon uyarısı: {err}")
 
                     return {"success": True, "data": data}
-                return {"success": False, "message": data.get("message", "Eşleştirme başarısız!")}
+                return {
+                    "success": False,
+                    "error_code": data.get("error_code", ""),
+                    "message": data.get("message", "Eşleştirme başarısız!"),
+                }
         except Exception as err:
             return {"success": False, "message": f"Bağlantı hatası: {err}"}
 

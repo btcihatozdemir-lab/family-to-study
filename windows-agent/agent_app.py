@@ -57,6 +57,7 @@ class AgentApp:
         auth = load_device_auth()
         user_id = auth.get("user_id", CONFIG.user_id)
         family_id = auth.get("family_id", CONFIG.family_id)
+        device_token = auth.get("device_token", CONFIG.device_token)
 
         self.telemetry = telemetry or SupabaseTelemetryService(
             supabase_url=CONFIG.supabase_url,
@@ -64,6 +65,7 @@ class AgentApp:
             user_id=user_id,
             family_id=family_id,
             device_id=CONFIG.device_id,
+            device_token=device_token,
             on_remote_state_change=self._handle_remote_state_change,
         )
 

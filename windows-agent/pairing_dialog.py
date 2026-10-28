@@ -250,6 +250,7 @@ class DevicePairingDialog(QDialog):
                 "user_id": data.get("user_id", CONFIG.user_id),
                 "family_id": data.get("family_id", CONFIG.family_id),
                 "magic_login_token": data.get("magic_login_token", ""),
+                "device_token": data.get("device_token", CONFIG.device_token),
                 "student_name": student_name,
                 "device_id": CONFIG.device_id,
                 "paired_at": data.get("paired_at", ""),
@@ -286,8 +287,13 @@ class DevicePairingDialog(QDialog):
 
             self.accept()
         else:
-            self.lbl_status.setStyleSheet("font-size: 11px; color: #f43f5e; font-weight: bold;")
-            self.lbl_status.setText(f"❌ {res.get('message', 'Eşleştirme kodu geçersiz!')}")
+            err_code = res.get("error_code", "")
+            if err_code == "PRO_REQUIRED_FOR_PC_AGENT":
+                self.lbl_status.setStyleSheet("font-size: 11px; color: #fbbf24; font-weight: bold;")
+                self.lbl_status.setText("⭐ Windows PC Ajanı FamilyOS Pro paketine özeldir.\nLütfen mobil uygulamadan Pro üyeliğe geçin.")
+            else:
+                self.lbl_status.setStyleSheet("font-size: 11px; color: #f43f5e; font-weight: bold;")
+                self.lbl_status.setText(f"❌ {res.get('message', 'Eşleştirme kodu geçersiz!')}")
             self.btn_submit.setEnabled(True)
 
 

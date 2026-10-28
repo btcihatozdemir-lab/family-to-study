@@ -30,6 +30,14 @@ class SupabaseService {
       StreamController<MessageModel>.broadcast();
   static StreamController<MessageModel> get messageStreamController => messageReceivedController;
 
+  static void setDeviceToken(String? token) {
+    if (token != null && token.isNotEmpty) {
+      client.rest.headers['x-device-token'] = token;
+    } else {
+      client.rest.headers.remove('x-device-token');
+    }
+  }
+
   static Future<void> init() async {
     await Supabase.initialize(
       url: supabaseUrl,
@@ -38,6 +46,11 @@ class SupabaseService {
         eventsPerSecond: 10,
       ),
     );
+
+    // Cihaz oturum tokeni varsa REST çağrı başlığına iliştir
+    if (SessionManager.deviceToken.isNotEmpty) {
+      setDeviceToken(SessionManager.deviceToken);
+    }
 
     if (SessionManager.familyId.isNotEmpty) {
       subscribeToRealtimeEvents();
@@ -147,6 +160,11 @@ class SupabaseService {
         final userId = res['user_id']?.toString() ?? '';
         final famId = res['family_id']?.toString() ?? '';
         final token = res['magic_login_token']?.toString() ?? '';
+        final deviceToken = res['device_token']?.toString() ?? '';
+
+        if (deviceToken.isNotEmpty) {
+          setDeviceToken(deviceToken);
+        }
 
         final user = await fetchStudentProfile(userId);
         if (user != null) {
@@ -159,6 +177,7 @@ class SupabaseService {
             newGender: user.gender,
             newIsPrimaryAdmin: user.isPrimaryAdmin,
             newToken: token,
+            newDeviceToken: deviceToken,
           );
           subscribeToRealtimeEvents();
           return user;
@@ -210,6 +229,40 @@ class SupabaseService {
   }) async {
     final cleanPin = pin.trim();
     try {
+      // 1. Güvenli Cihaz Oturumu (device_sessions) ve x-device-token al
+      try {
+        final pairRes = await client.rpc('pair_child_device', params: {
+          'p_student_id': studentId,
+          'p_pin': cleanPin,
+          'p_device_id': 'ios-${studentId.substring(0, studentId.length > 8 ? 8 : studentId.length)}',
+          'p_device_name': 'iPhone Kids',
+        });
+        if (pairRes != null && pairRes['success'] == true) {
+          final deviceToken = pairRes['device_token']?.toString() ?? '';
+          if (deviceToken.isNotEmpty) {
+            setDeviceToken(deviceToken);
+          }
+          final user = await fetchStudentProfile(studentId);
+          if (user != null) {
+            await SessionManager.updateSession(
+              newUserId: user.id,
+              newFamilyId: user.familyId,
+              newRole: user.role,
+              newName: user.name,
+              newRoleTitle: user.roleTitle,
+              newGender: user.gender,
+              newIsPrimaryAdmin: user.isPrimaryAdmin,
+              newDeviceToken: deviceToken,
+            );
+            subscribeToRealtimeEvents();
+            return user;
+          }
+        }
+      } catch (rpcErr) {
+        print('[loginStudentWithPin] pair_child_device RPC uyarısı: $rpcErr');
+      }
+
+      // 2. Doğrudan users sorgusu (Geriye dönük uyumluluk)
       final res = await client
           .from('users')
           .select('*')
@@ -239,6 +292,48 @@ class SupabaseService {
       print('[loginStudentWithPin] Hata: $e');
     }
     return null;
+  }
+
+  /// App Store Guideline 5.1.1(v) - Aile Hesabını ve Tüm Verilerini Silme
+  static Future<Map<String, dynamic>> deleteFamilyAccount() async {
+    try {
+      final res = await client.rpc('delete_family_account');
+      if (res != null && res['success'] == true) {
+        setDeviceToken(null);
+        await SessionManager.clearSession();
+        return {
+          'success': true,
+          'message': res['message']?.toString() ?? 'Hesabınız ve tüm aile verileriniz başarıyla silindi.'
+        };
+      }
+      return {
+        'success': false,
+        'message': res?['message']?.toString() ?? 'Silme işlemi gerçekleştirilemedi.'
+      };
+    } catch (e) {
+      print('[deleteFamilyAccount] Hata: $e');
+      return {'success': false, 'message': 'Hata oluştu: $e'};
+    }
+  }
+
+  /// Ailenin Pro veya 7 Günlük Deneme Durumunu Sorgula
+  static Future<bool> checkIsFamilyPro(String familyId) async {
+    try {
+      final res = await client.rpc('is_family_pro', params: {'p_family_id': familyId});
+      return res == true;
+    } catch (e) {
+      print('[checkIsFamilyPro] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Oturumu Kapat ve Cihaz Başlığını Temizle
+  static Future<void> signOut() async {
+    try {
+      await client.auth.signOut();
+    } catch (_) {}
+    setDeviceToken(null);
+    await SessionManager.clearSession();
   }
 
   /// Kullanıcı Adı ve Şifre ile Doğrudan Giriş
