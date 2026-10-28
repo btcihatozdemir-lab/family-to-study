@@ -96,14 +96,14 @@ jobs:
           path: ios-app/FamilyToStudy_Fam_iOS.ipa
           if-no-files-found: error
 
-      - name: Publish to GitHub Releases (On Version Tag)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v1.0.0
+          name: FamilyToStudy Release v1.0.0
           files: |
             ios-app/FamilyToStudy_Kids_iOS15.ipa
             ios-app/FamilyToStudy_Fam_iOS.ipa
-          name: FamilyToStudy Release ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: true

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:js' as js;
+import 'js_interop/js_bridge.dart';
 
 class WalkieAudioService {
   static bool _isRecording = false;
@@ -13,7 +12,7 @@ class WalkieAudioService {
     try {
       if (kIsWeb) {
         _isRecording = true;
-        js.context.callMethod('startRealVoiceRecording');
+        JSBridge.callMethod('startRealVoiceRecording');
         return true;
       }
       return false;
@@ -30,10 +29,10 @@ class WalkieAudioService {
       if (kIsWeb) {
         _isRecording = false;
         // JS Promise'ini tetikle
-        js.context.callMethod('stopRealVoiceRecording');
+        JSBridge.callMethod('stopRealVoiceRecording');
         // Kısa bir bekleme ile Base64 verisini al
         await Future.delayed(const Duration(milliseconds: 300));
-        final dynamic raw = js.context.callMethod('getLastRecordedAudio');
+        final dynamic raw = JSBridge.getMethod('getLastRecordedAudio');
         if (raw != null && raw.toString().isNotEmpty) {
           return raw.toString();
         }
@@ -49,7 +48,7 @@ class WalkieAudioService {
   static void playAudio(String audioUrl) {
     try {
       if (kIsWeb) {
-        js.context.callMethod('playRealAudio', [audioUrl]);
+        JSBridge.callMethod('playRealAudio', [audioUrl]);
       }
     } catch (e) {
       print('[WalkieAudioService.playAudio] Hata: $e');
@@ -60,7 +59,7 @@ class WalkieAudioService {
   static void stopAudio() {
     try {
       if (kIsWeb) {
-        js.context.callMethod('stopRealAudio');
+        JSBridge.callMethod('stopRealAudio');
       }
     } catch (e) {}
   }

@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:js' as js;
+import 'js_interop/js_bridge.dart';
 
 class TTSService {
   static final FlutterTts _tts = FlutterTts();
@@ -53,7 +51,7 @@ class TTSService {
       if (kIsWeb) {
         // Web Speech API ile en berrak Türkçe ses
         try {
-          js.context.callMethod('playTurkishSpeech', [text]);
+          JSBridge.callMethod('playTurkishSpeech', [text]);
           return;
         } catch (e) {
           print('[TTSService Web JS] Hata: $e, fallback çalışıyor.');
@@ -92,7 +90,7 @@ class TTSService {
     try {
       if (kIsWeb) {
         try {
-          js.context.callMethod('stopTurkishSpeech');
+          JSBridge.callMethod('stopTurkishSpeech');
         } catch (_) {}
       }
       await _tts.stop();

@@ -118,10 +118,11 @@ jobs:
             dist/Kurulum_Baslat.bat
           retention-days: 30
 
-      - name: Publish Release Assets (On Tag or Manual Release)
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Publish Release Assets
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v1.0.0
+          name: FamilyToStudy Release v1.0.0
           files: |
             dist/FamilyOS_Windows_Package.zip
             dist/FamilyOS_Agent.exe
