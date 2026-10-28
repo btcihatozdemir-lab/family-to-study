@@ -117,16 +117,26 @@ jobs:
           path: ios-app/FamilyToStudy_Fam_iOS.ipa
           if-no-files-found: error
 
-      - name: Publish to GitHub Releases
+      - name: Publish to GitHub Releases (v1.0.1 Latest)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: FamilyToStudy Release v1.0.0
+          tag_name: v1.0.1
+          name: FamilyToStudy Release v1.0.1
           files: |
             ios-app/FamilyToStudy_Kids_iOS15.ipa
             ios-app/FamilyToStudy_Fam_iOS.ipa
           draft: false
           prerelease: false
-          generate_release_notes: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update v1.0.0 Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          files: |
+            ios-app/FamilyToStudy_Kids_iOS15.ipa
+            ios-app/FamilyToStudy_Fam_iOS.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

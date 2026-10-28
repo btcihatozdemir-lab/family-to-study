@@ -61,22 +61,35 @@ class _KidsAuthScreenState extends State<KidsAuthScreen> with SingleTickerProvid
       _selectedStudent = null;
     });
 
-    final fam = await SupabaseService.fetchFamilyByCode(code);
-    if (fam != null) {
-      final members = await SupabaseService.fetchFamilyMembers(fam['id'].toString());
-      // SADECE Öğrencileri / Çocukları Filtrele (SOLID: Single Responsibility)
-      final studentMembers = members.where((m) => m.role != 'parent').toList();
-      if (mounted) {
-        setState(() {
-          _foundFamily = fam;
-          _students = studentMembers;
-          _isFamilyLoading = false;
-        });
+    try {
+      final fam = await SupabaseService.fetchFamilyByCode(code)
+          .timeout(const Duration(seconds: 4), onTimeout: () => null);
+      if (fam != null) {
+        final members = await SupabaseService.fetchFamilyMembers(fam['id'].toString())
+            .timeout(const Duration(seconds: 4), onTimeout: () => []);
+        // SADECE Öğrencileri / Çocukları Filtrele (SOLID: Single Responsibility)
+        final studentMembers = members.where((m) => m.role != 'parent').toList();
+        if (mounted) {
+          setState(() {
+            _foundFamily = fam;
+            _students = studentMembers;
+            _isFamilyLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _familyError = 'Bu koda ait aile bulunamadı. Lütfen aile kodunuzu kontrol edin.';
+            _foundFamily = null;
+            _students = [];
+            _isFamilyLoading = false;
+          });
+        }
       }
-    } else {
+    } catch (e) {
       if (mounted) {
         setState(() {
-          _familyError = 'Bu koda ait aile bulunamadı. Lütfen aile kodunuzu kontrol edin.';
+          _familyError = 'Sunucu bağlantı uyarısı. Lütfen internetinizi kontrol edin.';
           _foundFamily = null;
           _students = [];
           _isFamilyLoading = false;

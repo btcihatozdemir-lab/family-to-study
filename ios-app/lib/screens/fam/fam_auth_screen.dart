@@ -55,26 +55,39 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
       _errorMessage = null;
     });
 
-    final fam = await SupabaseService.fetchFamilyByCode(code);
-    if (fam != null) {
-      final members = await SupabaseService.fetchFamilyMembers(fam['id'].toString());
-      final parents = members.where((m) => m.role == 'parent').toList();
-      if (mounted) {
-        setState(() {
-          _parents = parents;
-          if (parents.isNotEmpty) {
-            _selectedParent = parents.firstWhere((p) => p.isPrimaryAdmin, orElse: () => parents.first);
-          }
-          _isLoading = false;
-        });
+    try {
+      final fam = await SupabaseService.fetchFamilyByCode(code)
+          .timeout(const Duration(seconds: 4), onTimeout: () => null);
+      if (fam != null) {
+        final members = await SupabaseService.fetchFamilyMembers(fam['id'].toString())
+            .timeout(const Duration(seconds: 4), onTimeout: () => []);
+        final parents = members.where((m) => m.role == 'parent').toList();
+        if (mounted) {
+          setState(() {
+            _parents = parents;
+            if (parents.isNotEmpty) {
+              _selectedParent = parents.firstWhere((p) => p.isPrimaryAdmin, orElse: () => parents.first);
+            }
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _parents = [];
+            _selectedParent = null;
+            _isLoading = false;
+            _errorMessage = 'Bu koda ait aile bulunamadı.';
+          });
+        }
       }
-    } else {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _parents = [];
           _selectedParent = null;
           _isLoading = false;
-          _errorMessage = 'Bu koda ait aile bulunamadı.';
+          _errorMessage = 'Sunucu bağlantı uyarısı. Lütfen internetinizi kontrol edin.';
         });
       }
     }

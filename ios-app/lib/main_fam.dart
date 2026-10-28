@@ -46,13 +46,16 @@ class FamApp extends StatefulWidget {
 }
 
 class _FamAppState extends State<FamApp> {
-  bool _isLoading = true;
+  late bool _isLoading;
   UserModel? _parentUser;
 
   @override
   void initState() {
     super.initState();
-    _bootstrap();
+    _isLoading = SessionManager.isLoggedIn && SessionManager.userId.isNotEmpty;
+    if (_isLoading) {
+      _bootstrap();
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
@@ -106,10 +109,35 @@ class _FamAppState extends State<FamApp> {
       ),
       theme: FamTheme.themeData,
       home: _isLoading
-          ? const Scaffold(
+          ? Scaffold(
               backgroundColor: FamTheme.background,
               body: Center(
-                child: CircularProgressIndicator(color: FamTheme.primary),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      'assets/images/family_logo.png',
+                      width: 90,
+                      height: 90,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.family_restroom_rounded,
+                        color: FamTheme.primary,
+                        size: 72,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'FamilyToStudy Fam',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const CircularProgressIndicator(color: FamTheme.primary),
+                  ],
+                ),
               ),
             )
           : _parentUser != null

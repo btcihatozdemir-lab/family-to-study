@@ -55,14 +55,17 @@ class KidsApp extends StatefulWidget {
 }
 
 class _KidsAppState extends State<KidsApp> with WidgetsBindingObserver {
-  bool _isLoading = true;
+  late bool _isLoading;
   UserModel? _student;
 
   @override
   void initState() {
     super.initState();
+    _isLoading = SessionManager.isLoggedIn && SessionManager.userId.isNotEmpty;
     WidgetsBinding.instance.addObserver(this);
-    _bootstrap();
+    if (_isLoading) {
+      _bootstrap();
+    }
 
     // Arka plan servislerini UI ilk karesi çizildikten sonra güvenle başlat
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -144,10 +147,35 @@ class _KidsAppState extends State<KidsApp> with WidgetsBindingObserver {
       ),
       theme: KidsTheme.themeData,
       home: _isLoading
-          ? const Scaffold(
+          ? Scaffold(
               backgroundColor: KidsTheme.bgMidnight,
               body: Center(
-                child: CircularProgressIndicator(color: KidsTheme.cyanSoft),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      'assets/images/kids_logo.png',
+                      width: 90,
+                      height: 90,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.stars_rounded,
+                        color: KidsTheme.gold,
+                        size: 72,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'FamilyToStudy Kids',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const CircularProgressIndicator(color: KidsTheme.cyanSoft),
+                  ],
+                ),
               ),
             )
           : _student != null
