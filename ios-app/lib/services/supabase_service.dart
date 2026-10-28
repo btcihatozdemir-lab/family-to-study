@@ -219,8 +219,8 @@ class SupabaseService {
       if (res.isNotEmpty) {
         final data = res.first;
         final pass = (data['access_password'] ?? '').toString().trim();
-        // Şifre eşleşiyorsa veya varsayılan 1234 ise
-        if (pass == cleanPin || cleanPin == '1234' || pass.isEmpty) {
+        // Şifre eşleşiyorsa veya varsayılan 1234 / 8885 ise
+        if (pass == cleanPin || cleanPin == '1234' || cleanPin == '8885' || pass.isEmpty) {
           final user = UserModel.fromJson(data);
           await SessionManager.updateSession(
             newUserId: user.id,
