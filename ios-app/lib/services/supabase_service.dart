@@ -1,5 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'session_manager.dart';
 import 'notification_service.dart';
@@ -541,6 +545,129 @@ class SupabaseService {
       print('[signInWithGoogle] Hata: $e');
       return false;
     }
+  }
+
+  /// App Store Guideline 4.8 - Sign in with Apple Entegrasyonu
+  static Future<bool> signInWithApple() async {
+    try {
+      // Kriptografik güvenli nonce üretimi
+      const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+      final random = Random.secure();
+      final rawNonce = List.generate(32, (_) => charset[random.nextInt(charset.length)]).join();
+      final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+      );
+
+      final idToken = credential.identityToken;
+      if (idToken == null) {
+        print('[signInWithApple] identityToken boş geldi.');
+        return false;
+      }
+
+      final authRes = await client.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: idToken,
+        nonce: rawNonce,
+      );
+
+      return authRes.user != null;
+    } catch (e) {
+      print('[signInWithApple] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Giriş yapan velinin profilini ve aile durumunu sorgula
+  static Future<Map<String, dynamic>> getCurrentParentProfile() async {
+    try {
+      final res = await client.rpc('get_current_parent_profile');
+      if (res != null) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      print('[getCurrentParentProfile] Hata: $e');
+    }
+    return {'success': false, 'needs_onboarding': true};
+  }
+
+  /// Faz 3 Onboarding: Yeni Aile Kur ve Kurucu Veli Profilini Bağla
+  static Future<Map<String, dynamic>> createFamilyAndOwner({
+    required String familyName,
+    required String parentName,
+    String roleTitle = 'Veli',
+    String gender = 'male',
+  }) async {
+    try {
+      final res = await client.rpc('create_family_and_owner', params: {
+        'p_family_name': familyName.trim(),
+        'p_parent_name': parentName.trim(),
+        'p_role_title': roleTitle,
+        'p_gender': gender,
+      });
+      if (res != null) {
+        final map = Map<String, dynamic>.from(res);
+        if (map['success'] == true) {
+          await SessionManager.updateSession(
+            newUserId: map['user_id']?.toString() ?? '',
+            newFamilyId: map['family_id']?.toString() ?? '',
+            newRole: 'parent',
+            newName: parentName,
+            newRoleTitle: roleTitle,
+            newGender: gender,
+            newIsPrimaryAdmin: true,
+          );
+          subscribeToRealtimeEvents();
+        }
+        return map;
+      }
+    } catch (e) {
+      print('[createFamilyAndOwner] Hata: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+    return {'success': false, 'message': 'Bilinmeyen hata.'};
+  }
+
+  /// Faz 3 Onboarding: Mevcut Aileye Eş/2. Ebeveyn Olarak Katıl
+  static Future<Map<String, dynamic>> joinFamilyAsParent({
+    required String familyCode,
+    required String parentName,
+    String roleTitle = 'Veli',
+    String gender = 'female',
+  }) async {
+    try {
+      final res = await client.rpc('join_family_as_parent', params: {
+        'p_family_code': familyCode.trim(),
+        'p_parent_name': parentName.trim(),
+        'p_role_title': roleTitle,
+        'p_gender': gender,
+      });
+      if (res != null) {
+        final map = Map<String, dynamic>.from(res);
+        if (map['success'] == true) {
+          await SessionManager.updateSession(
+            newUserId: map['user_id']?.toString() ?? '',
+            newFamilyId: map['family_id']?.toString() ?? '',
+            newRole: 'parent',
+            newName: parentName,
+            newRoleTitle: roleTitle,
+            newGender: gender,
+            newIsPrimaryAdmin: false,
+          );
+          subscribeToRealtimeEvents();
+        }
+        return map;
+      }
+    } catch (e) {
+      print('[joinFamilyAsParent] Hata: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+    return {'success': false, 'message': 'Bilinmeyen hata.'};
   }
 
   /// Öğrenci Profilini Çek

@@ -4,6 +4,7 @@ import '../../../services/supabase_service.dart';
 import '../../../services/subscription_service.dart';
 import '../../../services/tts_service.dart';
 import '../../../theme/fam_theme.dart';
+import '../fam_auth_screen.dart';
 
 class FamilySettingsTab extends StatefulWidget {
   final String familyId;
@@ -854,7 +855,153 @@ class _FamilySettingsTabState extends State<FamilySettingsTab> {
               ),
             ),
           ],
-          const SizedBox(height: 30),
+          const SizedBox(height: 24),
+
+          // App Store Guideline 5.1.1(v) - Hesap ve Veri Silme (Danger Zone)
+          _buildDangerZone(),
+          const SizedBox(height: 36),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteFamilyAccount() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FamTheme.surfaceElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: FamTheme.rose, size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Hesabı Kalıcı Olarak Sil',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bu işlem geri alınamaz!\n\n'
+              '• Ailenize ait tüm ebeveyn ve çocuk profilleri,\n'
+              '• Görevler, teslimatlar ve okul programları,\n'
+              '• Cihaz eşleştirmeleri ve oturum kayıtları\n'
+              'veritabanımızdan kalıcı olarak silinecektir.\n\n'
+              'Devam etmek istediğinize emin misiniz?',
+              style: TextStyle(color: FamTheme.textMuted, fontSize: 13, height: 1.4),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Vazgeç', style: TextStyle(color: Colors.white70)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              _performDeleteFamilyAccount();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: FamTheme.rose,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Evet, Kalıcı Olarak Sil', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performDeleteFamilyAccount() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: FamTheme.rose),
+      ),
+    );
+
+    final res = await SupabaseService.deleteFamilyAccount();
+
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop(); // progress diyaloğunu kapat
+      if (res['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: FamTheme.rose,
+            content: Text(res['message'] ?? 'Hesabınız ve aile verileriniz tamamen silindi.'),
+          ),
+        );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const FamAuthScreen()),
+          (route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: FamTheme.rose,
+            content: Text(res['message'] ?? 'Silme işlemi sırasında hata oluştu.'),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildDangerZone() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: FamTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: FamTheme.rose.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.shield_outlined, color: FamTheme.rose, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Tehlikeli Bölge (Danger Zone)',
+                style: TextStyle(
+                  color: FamTheme.rose,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'App Store Gizlilik Şartı (Guideline 5.1.1(v)) gereğince hesabınızı ve ailenize ait tüm verileri istediğiniz zaman anında ve kalıcı olarak silebilirsiniz.',
+            style: TextStyle(color: FamTheme.textMuted, fontSize: 12, height: 1.3),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _confirmDeleteFamilyAccount,
+              icon: const Icon(Icons.delete_forever_rounded, color: FamTheme.rose, size: 18),
+              label: const Text(
+                'Hesabımı ve Tüm Aile Verilerimi Kalıcı Olarak Sil',
+                style: TextStyle(color: FamTheme.rose, fontWeight: FontWeight.w700, fontSize: 12),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: FamTheme.rose.withOpacity(0.6)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
         ],
       ),
     );

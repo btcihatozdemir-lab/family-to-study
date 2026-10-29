@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../theme/fam_theme.dart';
 import '../../services/supabase_service.dart';
 import '../../services/session_manager.dart';
 import '../../models/user_model.dart';
 import 'fam_home_screen.dart';
+import 'onboarding_screen.dart';
 
 class FamAuthScreen extends StatefulWidget {
   const FamAuthScreen({super.key});
@@ -46,50 +48,33 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
     super.dispose();
   }
 
-  Future<void> _lookupFamily() async {
-    final code = _familyCodeController.text.trim();
-    if (code.isEmpty) return;
+  Future<void> _checkParentSessionAndNavigate() async {
+    final profile = await SupabaseService.getCurrentParentProfile();
+    if (!mounted) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final fam = await SupabaseService.fetchFamilyByCode(code)
-          .timeout(const Duration(seconds: 4), onTimeout: () => null);
-      if (fam != null) {
-        final members = await SupabaseService.fetchFamilyMembers(fam['id'].toString())
-            .timeout(const Duration(seconds: 4), onTimeout: () => []);
-        final parents = members.where((m) => m.role == 'parent').toList();
-        if (mounted) {
-          setState(() {
-            _parents = parents;
-            if (parents.isNotEmpty) {
-              _selectedParent = parents.firstWhere((p) => p.isPrimaryAdmin, orElse: () => parents.first);
-            }
-            _isLoading = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _parents = [];
-            _selectedParent = null;
-            _isLoading = false;
-            _errorMessage = 'Bu koda ait aile bulunamadı.';
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _parents = [];
-          _selectedParent = null;
-          _isLoading = false;
-          _errorMessage = 'Sunucu bağlantı uyarısı. Lütfen internetinizi kontrol edin.';
-        });
-      }
+    if (profile['needs_onboarding'] == true) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      );
+    } else if (profile['success'] == true) {
+      await SessionManager.updateSession(
+        newUserId: profile['user_id']?.toString() ?? '',
+        newFamilyId: profile['family_id']?.toString() ?? '',
+        newRole: profile['role']?.toString() ?? 'parent',
+        newName: profile['name']?.toString() ?? '',
+        newRoleTitle: profile['avatar_config']?['roleTitle']?.toString() ?? 'Veli',
+        newGender: profile['gender']?.toString() ?? 'male',
+        newIsPrimaryAdmin: profile['is_primary_admin'] == true,
+      );
+      SupabaseService.subscribeToRealtimeEvents();
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const FamHomeScreen()),
+      );
+    } else {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = profile['message']?.toString() ?? 'Giriş doğrulanamadı.';
+      });
     }
   }
 
@@ -101,9 +86,32 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
 
     final success = await SupabaseService.signInWithGoogle();
     if (mounted) {
-      setState(() => _isLoading = false);
-      if (!success) {
-        setState(() => _errorMessage = 'Google ile giriş başlatılamadı veya iptal edildi.');
+      if (success) {
+        await _checkParentSessionAndNavigate();
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Google ile giriş başlatılamadı veya iptal edildi.';
+        });
+      }
+    }
+  }
+
+  Future<void> _handleAppleSignIn() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final success = await SupabaseService.signInWithApple();
+    if (mounted) {
+      if (success) {
+        await _checkParentSessionAndNavigate();
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Apple ile giriş tamamlanamadı veya iptal edildi.';
+        });
       }
     }
   }
@@ -221,8 +229,8 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
                   _buildHeader(),
                   const SizedBox(height: 24),
 
-                  // Google ile Hızlı Giriş Butonu (OAuth)
-                  _buildGoogleButton(),
+                  // OAuth Butonları: Apple + Google
+                  _buildOAuthButtons(),
                   const SizedBox(height: 18),
 
                   Row(
@@ -343,26 +351,50 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildGoogleButton() {
-    return ElevatedButton(
-      onPressed: _isLoading ? null : _handleGoogleSignIn,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0F172A),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 3,
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text('🌐', style: TextStyle(fontSize: 20)),
-          SizedBox(width: 10),
-          Text(
-            'Google ile Ebeveyn Girişi Yap',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F172A)),
+  Widget _buildOAuthButtons() {
+    return Column(
+      children: [
+        // App Store Guideline 4.8: Sign in with Apple
+        SizedBox(
+          height: 50,
+          width: double.infinity,
+          child: SignInWithAppleButton(
+            onPressed: _isLoading ? null : _handleAppleSignIn,
+            text: 'Apple ile Ebeveyn Girişi Yap',
+            style: SignInWithAppleButtonStyle.white,
+            borderRadius: BorderRadius.circular(16),
           ),
-        ],
+        ),
+        const SizedBox(height: 10),
+        _buildGoogleButton(),
+      ],
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    return SizedBox(
+      height: 50,
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleGoogleSignIn,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1E293B),
+          foregroundColor: Colors.white,
+          side: BorderSide(color: Colors.white.withOpacity(0.12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 0,
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('🌐', style: TextStyle(fontSize: 18)),
+            SizedBox(width: 10),
+            Text(
+              'Google ile Ebeveyn Girişi Yap',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.white),
+            ),
+          ],
+        ),
       ),
     );
   }

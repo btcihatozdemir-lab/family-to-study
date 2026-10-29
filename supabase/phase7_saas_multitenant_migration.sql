@@ -824,7 +824,207 @@ EXECUTE FUNCTION public.check_free_tier_task_limit();
 
 
 -- ----------------------------------------------------------------------------
--- 9. APP STORE ZORUNLU HESAP & AİLE SİLME (delete_family_account)
+-- 9. DİNAMİK ONBOARDING & AİLE OLUŞTURMA / KATILMA RPC'LERİ
+-- ----------------------------------------------------------------------------
+
+-- 9.1. Yeni Aile Kurma ve Kurucu Veli Profilini Oluşturma (create_family_and_owner)
+CREATE OR REPLACE FUNCTION public.create_family_and_owner(
+    p_family_name TEXT,
+    p_parent_name TEXT,
+    p_role_title TEXT DEFAULT 'Veli',
+    p_gender TEXT DEFAULT 'male'
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_auth_id UUID;
+    v_fam_id TEXT;
+    v_fam_code TEXT;
+    v_user_id TEXT;
+BEGIN
+    v_auth_id := auth.uid();
+    IF v_auth_id IS NULL THEN
+        -- Test veya anonim durumlarda rastgele auth UUID fallback
+        v_auth_id := gen_random_uuid();
+    END IF;
+
+    -- Benzersiz 6 karakterlik Aile Kodu üret (Örn: FAM-9X2A)
+    v_fam_code := 'FAM-' || upper(substr(encode(gen_random_bytes(3), 'hex'), 1, 4));
+
+    -- 1. Aile kaydını 7 günlük Reverse Trial ile aç
+    INSERT INTO public.families (
+        name,
+        family_code,
+        owner_auth_id,
+        subscription_tier,
+        subscription_status,
+        trial_ends_at,
+        pc_agent_allowed,
+        max_child_devices
+    ) VALUES (
+        p_family_name,
+        v_fam_code,
+        v_auth_id,
+        'pro',
+        'trial',
+        NOW() + INTERVAL '7 days',
+        true,
+        10
+    ) RETURNING id INTO v_fam_id;
+
+    -- 2. Kurucu Veli Kullanıcı Profilini Oluştur
+    INSERT INTO public.users (
+        family_id,
+        auth_user_id,
+        name,
+        role,
+        is_primary_admin,
+        gender,
+        avatar_config
+    ) VALUES (
+        v_fam_id,
+        v_auth_id,
+        p_parent_name,
+        'parent',
+        true,
+        p_gender,
+        jsonb_build_object(
+            'roleTitle', p_role_title,
+            'avatarEmoji', CASE WHEN p_gender = 'female' THEN '👩‍💼' ELSE '👨‍💼' END
+        )
+    ) RETURNING id INTO v_user_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'family_id', v_fam_id,
+        'family_code', v_fam_code,
+        'user_id', v_user_id,
+        'name', p_parent_name,
+        'role', 'parent',
+        'is_primary_admin', true,
+        'trial_ends_at', NOW() + INTERVAL '7 days'
+    );
+END;
+$$;
+
+
+-- 9.2. Mevcut Aileye Eş / 2. Ebeveyn Olarak Katılma (join_family_as_parent)
+CREATE OR REPLACE FUNCTION public.join_family_as_parent(
+    p_family_code TEXT,
+    p_parent_name TEXT,
+    p_role_title TEXT DEFAULT 'Veli',
+    p_gender TEXT DEFAULT 'female'
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_clean_code TEXT;
+    v_fam RECORD;
+    v_auth_id UUID;
+    v_user_id TEXT;
+BEGIN
+    v_auth_id := auth.uid();
+    v_clean_code := upper(regexp_replace(COALESCE(p_family_code, ''), '[^a-zA-Z0-9]', '', 'g'));
+
+    SELECT * INTO v_fam
+    FROM public.families
+    WHERE upper(regexp_replace(family_code, '[^a-zA-Z0-9]', '', 'g')) = v_clean_code
+    LIMIT 1;
+
+    IF v_fam.id IS NULL THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error_code', 'FAMILY_NOT_FOUND',
+            'message', 'Bu koda ait bir aile bulunamadı. Lütfen aile kodunu kontrol edin.'
+        );
+    END IF;
+
+    -- 2. Ebeveyn profilini aileye ekle
+    INSERT INTO public.users (
+        family_id,
+        auth_user_id,
+        name,
+        role,
+        is_primary_admin,
+        gender,
+        avatar_config
+    ) VALUES (
+        v_fam.id,
+        v_auth_id,
+        p_parent_name,
+        'parent',
+        false,
+        p_gender,
+        jsonb_build_object(
+            'roleTitle', p_role_title,
+            'avatarEmoji', CASE WHEN p_gender = 'female' THEN '👩‍💼' ELSE '👨‍💼' END
+        )
+    ) RETURNING id INTO v_user_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'family_id', v_fam.id,
+        'family_code', v_fam.family_code,
+        'user_id', v_user_id,
+        'name', p_parent_name,
+        'role', 'parent',
+        'is_primary_admin', false
+    );
+END;
+$$;
+
+
+-- 9.3. Oturum Açmış Velinin Profilini Getirme (get_current_parent_profile)
+CREATE OR REPLACE FUNCTION public.get_current_parent_profile()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_auth_id UUID;
+    v_user RECORD;
+    v_fam RECORD;
+BEGIN
+    v_auth_id := auth.uid();
+    IF v_auth_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'message', 'Oturum açılmamış.');
+    END IF;
+
+    SELECT * INTO v_user
+    FROM public.users
+    WHERE auth_user_id = v_auth_id AND role = 'parent'
+    LIMIT 1;
+
+    IF v_user.id IS NULL THEN
+        -- Henüz ailesi/profili olmayan yeni veli (Onboarding gerekir)
+        RETURN jsonb_build_object('success', false, 'needs_onboarding', true);
+    END IF;
+
+    SELECT * INTO v_fam FROM public.families WHERE id = v_user.family_id LIMIT 1;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'needs_onboarding', false,
+        'user_id', v_user.id,
+        'family_id', v_user.family_id,
+        'family_code', v_fam.family_code,
+        'family_name', v_fam.name,
+        'name', v_user.name,
+        'role', v_user.role,
+        'is_primary_admin', v_user.is_primary_admin,
+        'gender', v_user.gender,
+        'avatar_config', v_user.avatar_config
+    );
+END;
+$$;
+
+
+-- ----------------------------------------------------------------------------
+-- 10. APP STORE ZORUNLU HESAP & AİLE SİLME (delete_family_account)
 -- ----------------------------------------------------------------------------
 -- Veli uygulama içerisinden hesabını ve tüm aile verilerini CASCADE olarak siler.
 -- ----------------------------------------------------------------------------
@@ -987,5 +1187,8 @@ GRANT EXECUTE ON FUNCTION public.generate_device_pairing_token(TEXT) TO authenti
 GRANT EXECUTE ON FUNCTION public.verify_device_pairing(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.verify_desktop_pairing_code(TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.pair_child_device(TEXT, TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.create_family_and_owner(TEXT, TEXT, TEXT, TEXT) TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.join_family_as_parent(TEXT, TEXT, TEXT, TEXT) TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.get_current_parent_profile() TO authenticated, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.delete_family_account() TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION public.cleanup_free_tier_old_data() TO service_role;
