@@ -1192,3 +1192,55 @@ GRANT EXECUTE ON FUNCTION public.join_family_as_parent(TEXT, TEXT, TEXT, TEXT) T
 GRANT EXECUTE ON FUNCTION public.get_current_parent_profile() TO authenticated, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.delete_family_account() TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION public.cleanup_free_tier_old_data() TO service_role;
+
+-- ----------------------------------------------------------------------------
+-- 13. GERÇEK APNS PUSH BİLDİRİM MİMARİSİ (DEVICE PUSH TOKENS)
+-- ----------------------------------------------------------------------------
+ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS apns_token TEXT;
+ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS push_token TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS apns_token TEXT;
+
+CREATE OR REPLACE FUNCTION public.register_device_apns_token(
+    p_apns_token TEXT,
+    p_device_id TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_fam_id TEXT;
+    v_user_id TEXT;
+BEGIN
+    v_fam_id := public.get_current_family_id();
+    v_user_id := public.get_current_user_id();
+
+    IF p_apns_token IS NULL OR length(trim(p_apns_token)) = 0 THEN
+        RETURN jsonb_build_object('success', false, 'message', 'Geçersiz APNs token');
+    END IF;
+
+    -- 1. Cihaz ID varsa devices tablosunu güncelle
+    IF p_device_id IS NOT NULL AND length(p_device_id) > 0 THEN
+        UPDATE public.devices
+        SET apns_token = p_apns_token,
+            push_token = p_apns_token,
+            last_activity_at = NOW()
+        WHERE id = p_device_id;
+    END IF;
+
+    -- 2. Oturumdaki kullanıcının users kaydını güncelle
+    IF v_user_id IS NOT NULL THEN
+        UPDATE public.users
+        SET apns_token = p_apns_token
+        WHERE id = v_user_id;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'APNs token başarıyla güncellendi.',
+        'apns_token', p_apns_token
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.register_device_apns_token(TEXT, TEXT) TO anon, authenticated, service_role;

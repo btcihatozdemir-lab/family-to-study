@@ -25,12 +25,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 
-	<!-- 7/24 Arka Plan Bildirim & Ses Yetkileri -->
+	<!-- Apple Push Notifications (APNs) Arka Plan Bildirim Yetkisi -->
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>audio</string>
+		<string>remote-notification</string>
 		<string>fetch</string>
-		<string>processing</string>
 	</array>
 
 	<!-- Donanım İzinleri (Kamera & Mikrofon & Fotoğraf) -->

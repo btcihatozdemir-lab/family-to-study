@@ -7,7 +7,6 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'session_manager.dart';
 import 'notification_service.dart';
-import 'audio_keep_alive_service.dart';
 import '../models/user_model.dart';
 import '../models/task_model.dart';
 import '../models/schedule_model.dart';
@@ -61,7 +60,9 @@ class SupabaseService {
     }
   }
 
-  /// 7/24 Supabase Realtime WebSocket Dinleyicisi
+  /// Faz 4 Optimize Edilmiş Supabase Realtime WebSocket Dinleyicisi
+  /// Sadece kritik anlık olayları dinler (users: current_state ve messages: telsiz).
+  /// Ağır CRUD tabloları (tasks, submissions vb.) REST ve APNs ile yönetilir.
   static void subscribeToRealtimeEvents() {
     _familyChannel?.unsubscribe();
 
@@ -70,7 +71,7 @@ class SupabaseService {
 
     _familyChannel = client.channel('ios_family_realtime_$famId');
 
-    // 1. Öğrenci Durum & Puan & Kalkan Değişimi Dinleyicisi
+    // 1. Kritik Durum & Kalkan Değişimi Dinleyicisi (users tablosu)
     _familyChannel!.onPostgresChanges(
       event: PostgresChangeEvent.all,
       schema: 'public',
@@ -86,45 +87,12 @@ class SupabaseService {
             NotificationService.showWakeUpAlarm(
               message: 'Sabah Görevleri ve Canlı Çanta Seni Bekliyor!',
             );
-            AudioKeepAliveService.playLoudAlarm();
           }
         }
       },
     );
 
-    // 2. Görev ve Teslimat Dinleyicisi
-    _familyChannel!.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'tasks',
-      callback: (_) {
-        tasksUpdateController.add(null);
-      },
-    );
-
-    _familyChannel!.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'task_submissions',
-      callback: (payload) {
-        tasksUpdateController.add(null);
-        final record = payload.newRecord;
-        final status = record['status'];
-        final studentId = record['student_id'];
-
-        if (SessionManager.isStudent && studentId == SessionManager.userId) {
-          if (status == 'approved') {
-            final points = record['awarded_points'] ?? 50;
-            NotificationService.showTaskApprovedAlert(
-              taskTitle: 'Tebrikler! Görevin onaylandı',
-              points: points is int ? points : int.tryParse(points.toString()) ?? 50,
-            );
-          }
-        }
-      },
-    );
-
-    // 3. Bas-Konuş Telsiz Mesajları
+    // 2. Bas-Konuş Acil Telsiz Mesajları Dinleyicisi (messages tablosu)
     _familyChannel!.onPostgresChanges(
       event: PostgresChangeEvent.insert,
       schema: 'public',
@@ -145,7 +113,28 @@ class SupabaseService {
     );
 
     _familyChannel!.subscribe();
-    print('[SupabaseService] Realtime kanallarına abone olundu: famId=$famId');
+    print('[SupabaseService] Optimize edilmiş Realtime kanalına abone olundu: famId=$famId');
+  }
+
+  /// Faz 4: Apple APNs Device Push Token Kaydı
+  static Future<bool> registerDeviceApnsToken(String apnsToken) async {
+    final cleanToken = apnsToken.trim();
+    if (cleanToken.isEmpty) return false;
+
+    try {
+      final res = await client.rpc('register_device_apns_token', params: {
+        'p_apns_token': cleanToken,
+        'p_device_id': SessionManager.deviceId.isNotEmpty ? SessionManager.deviceId : null,
+      });
+
+      if (res != null && res['success'] == true) {
+        print('[SupabaseService] APNs Token başarıyla veritabanına mühürlendi.');
+        return true;
+      }
+    } catch (e) {
+      print('[registerDeviceApnsToken] Hata: $e');
+    }
+    return false;
   }
 
   // ---------------------------------------------------------------------------

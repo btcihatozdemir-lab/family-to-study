@@ -1,8 +1,17 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'tts_service.dart';
+import 'supabase_service.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+
+  static const MethodChannel _apnsChannel =
+      MethodChannel('com.familytostudy.app/apns');
+
+  static String? _cachedApnsToken;
+  static String? get cachedApnsToken => _cachedApnsToken;
 
   static Future<void> init() async {
     try {
@@ -21,6 +30,21 @@ class NotificationService {
       );
 
       await _notifications.initialize(initSettings);
+
+      // Native iOS APNs Kanal Dinleyicisi
+      _apnsChannel.setMethodCallHandler((call) async {
+        if (call.method == 'onApnsToken') {
+          final token = call.arguments?.toString();
+          if (token != null && token.isNotEmpty) {
+            _cachedApnsToken = token;
+            print('[NotificationService] APNs Token alındı: $token');
+            await SupabaseService.registerDeviceApnsToken(token);
+          }
+        }
+      });
+
+      // TTS Servisini de hazırla
+      await TTSService.init();
     } catch (e) {
       print('[NotificationService] Başlatma uyarısı: $e');
     }
@@ -29,7 +53,7 @@ class NotificationService {
   /// Kullanıcı arayüzü ekrana geldikten sonra bildirim izinlerini güvenle talep eder
   static Future<void> requestPermissions() async {
     try {
-      await _notifications
+      final granted = await _notifications
           .resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin>()
           ?.requestPermissions(
@@ -37,8 +61,29 @@ class NotificationService {
             badge: true,
             sound: true,
           );
+
+      if (granted == true) {
+        // Native APNs kaydını tetikle
+        await _apnsChannel.invokeMethod('registerForRemoteNotifications');
+
+        // Hafızada token varsa Supabase'e gönder
+        final token = await _apnsChannel.invokeMethod<String>('getApnsToken');
+        if (token != null && token.isNotEmpty) {
+          _cachedApnsToken = token;
+          await SupabaseService.registerDeviceApnsToken(token);
+        }
+      }
     } catch (e) {
       print('[NotificationService] İzin isteme uyarısı: $e');
+    }
+  }
+
+  /// Çocuğu ürkütmeyen, nazik ve motive edici sesli anons (TTS)
+  static Future<void> playGentleVoiceCue(String text) async {
+    try {
+      await TTSService.speak(text);
+    } catch (e) {
+      print('[NotificationService] Seslendirme uyarısı: $e');
     }
   }
 
@@ -48,6 +93,7 @@ class NotificationService {
     required String body,
     String? soundName,
     bool isUrgent = false,
+    String? gentleVoiceText,
   }) async {
     final darwinDetails = DarwinNotificationDetails(
       presentAlert: true,
@@ -64,6 +110,11 @@ class NotificationService {
     );
 
     await _notifications.show(id, title, body, details);
+
+    // Çocuğu rahatsız etmeyen nazik seslendirme
+    if (gentleVoiceText != null && gentleVoiceText.isNotEmpty) {
+      playGentleVoiceCue(gentleVoiceText);
+    }
   }
 
   // 1. İhlal Bildirimi (Veli için)
@@ -73,19 +124,20 @@ class NotificationService {
   }) async {
     await showNotification(
       id: 101,
-      title: '🚨 KALKAN İHLALİ: $studentName',
-      body: '$studentName ders/odaklanma saatinde ihlal yaptı: $reason',
+      title: '🚨 Kalkan Uyarısı: $studentName',
+      body: '$studentName odaklanma saatinde işlem yaptı: $reason',
       isUrgent: true,
     );
   }
 
-  // 2. Uygulamadan Çıkma / Minimize Uyarısı (Öğrenci için)
+  // 2. Uygulamadan Çıkma / Minimize Uyarısı (Öğrenci için - Nazik Hatırlatma)
   static Future<void> showAppMinimizedWarning() async {
     await showNotification(
       id: 102,
-      title: '🚨 DERS SAATİNDE UYGULAMADAN ÇIKTIN!',
-      body: 'Kalkanının kırılmaması için hemen FamilyOS uygulamasına geri dön!',
+      title: '🌟 Ders Saati Devam Ediyor',
+      body: 'Kalkanını korumak ve puan kaybetmemek için haydi uygulamaya geri dön!',
       isUrgent: true,
+      gentleVoiceText: 'Ders saatin devam ediyor, kalkanını korumak için uygulamaya dönelim.',
     );
   }
 
@@ -101,15 +153,16 @@ class NotificationService {
     );
   }
 
-  // 4. Görev Onay Bildirimi (Öğrenci için)
+  // 4. Görev Onay Bildirimi (Öğrenci için - Sevecen ve Coşkulu)
   static Future<void> showTaskApprovedAlert({
     required String taskTitle,
     required int points,
   }) async {
     await showNotification(
       id: 104,
-      title: '🎉 Görevin Onaylandı!',
+      title: '🎉 Harikasın! Görevin Onaylandı',
       body: '"$taskTitle" onaylandı! +$points Altın Puan kazandın.',
+      gentleVoiceText: 'Tebrikler! Görevin onaylandı, harika iş çıkardın!',
     );
   }
 
@@ -120,25 +173,37 @@ class NotificationService {
   }) async {
     await showNotification(
       id: 105,
-      title: '🎙️ Telsiz Mesajı: $senderName',
+      title: '🎙️ Ailenden Mesaj: $senderName',
       body: previewText,
       isUrgent: true,
     );
   }
 
-  // 6. Sabah Uyandırma Alarmı
+  // 6. Sabah Uyandırma Alarmı (Korkutucu Siren Yerine Neşeli & Tatlı Sesli Günaydın)
   static Future<void> showWakeUpAlarm({
     required String message,
   }) async {
     await showNotification(
       id: 106,
-      title: '⏰ GÜNAYDIN! UYANMA VAKTİ',
+      title: '☀️ Günaydın! Yeni Bir Gün Başlıyor',
       body: message,
       isUrgent: true,
+      gentleVoiceText: 'Günaydın! Yeni ve harika bir güne hazır mısın? Görevlerin seni bekliyor.',
     );
   }
 
-  // 7. Adalet Divanı İtiraz Bildirimi (Veli için)
+  // 7. Mola Bitti Hatırlatması (Nazik Davet)
+  static Future<void> showBreakFinishedAlert() async {
+    await showNotification(
+      id: 108,
+      title: '🔔 Mola Tamamlandı',
+      body: 'Dinlenme süresi bitti. Hazırsan odaklanma vaktine geçelim!',
+      isUrgent: false,
+      gentleVoiceText: 'Molan bitti, haydi tekrar derse odaklanalım.',
+    );
+  }
+
+  // 8. Adalet Divanı İtiraz Bildirimi (Veli için)
   static Future<void> showAppealAlert({
     required String studentName,
     required String reason,
@@ -146,7 +211,7 @@ class NotificationService {
     await showNotification(
       id: 107,
       title: '⚖️ Adalet Divanı: $studentName İtiraz Etti',
-      body: 'Gerekçe: "$reason". Karar vermeniz bekleniyor.',
+      body: 'Gerekçe: "$reason". Değerlendirmeniz bekleniyor.',
       isUrgent: true,
     );
   }

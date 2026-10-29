@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'services/session_manager.dart';
 import 'services/notification_service.dart';
-import 'services/audio_keep_alive_service.dart';
 import 'services/supabase_service.dart';
 import 'models/user_model.dart';
 import 'theme/kids_theme.dart';
@@ -74,12 +73,6 @@ class _KidsAppState extends State<KidsApp> with WidgetsBindingObserver {
         await NotificationService.requestPermissions();
       } catch (e) {
         print('[KidsApp] Notification deferred init error: $e');
-      }
-
-      try {
-        await AudioKeepAliveService.startKeepAliveLoop();
-      } catch (e) {
-        print('[KidsApp] AudioKeepAlive deferred start error: $e');
       }
     });
   }

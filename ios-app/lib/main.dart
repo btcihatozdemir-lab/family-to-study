@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'services/session_manager.dart';
 import 'services/notification_service.dart';
-import 'services/audio_keep_alive_service.dart';
 import 'services/supabase_service.dart';
 import 'services/subscription_service.dart';
 import 'models/user_model.dart';
@@ -214,7 +213,6 @@ class EcosystemSelectorScreen extends StatelessWidget {
                             buttonText: 'Kids Uygulamasını Başlat',
                             onTap: () {
                               SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-                              AudioKeepAliveService.startKeepAliveLoop();
                               runApp(const KidsApp());
                             },
                           ),
