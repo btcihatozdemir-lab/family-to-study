@@ -261,6 +261,25 @@ class TestSolidArchitecture(unittest.TestCase):
         I18n.set_language("tr")
         self.assertEqual(t("focus_mode"), "Odaklanma Saati")
 
+    def test_ntp_guard_and_time_vault(self) -> None:
+        """NTP Saat Güvenliği ve Zaman Bankası doğru çalışmalıdır."""
+        from core.ntp_guard import NtpGuard
+        from core.time_vault import TimeVaultManager
+        import os
+
+        # NTP Doğrulama testi (Zaman sapması makul sınırda olmalı)
+        is_clock_ok = NtpGuard.verify_system_clock(max_drift_seconds=3600)
+        self.assertTrue(is_clock_ok)
+
+        # Zaman Bankası Testi
+        vault = TimeVaultManager(cache_file="/tmp/test_vault.json")
+        vault.deposit_minutes(20)
+        self.assertGreaterEqual(vault.saved_minutes, 20)
+        withdrawn = vault.withdraw_minutes(10)
+        self.assertTrue(withdrawn)
+        if os.path.exists("/tmp/test_vault.json"):
+            os.remove("/tmp/test_vault.json")
+
 
 if __name__ == "__main__":
     unittest.main()

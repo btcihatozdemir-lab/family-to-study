@@ -121,12 +121,22 @@ class StatusFloater(IStateObserver):
         self._shields_lbl.setStyleSheet("font-size: 11px;")
         self._layout.addWidget(self._shields_lbl)
 
+        # 6. Zaman Bankası (Vault)
+        self._vault_lbl = QLabel("🏦 30dk")
+        self._vault_lbl.setToolTip("Zaman Bankası Tasarrufunuz")
+        self._vault_lbl.setStyleSheet(
+            f"background-color: {AgentTheme.BG_ELEVATED}; "
+            f"border-radius: 9px; padding: 2px 6px; font-size: 10px; "
+            f"font-weight: 900; color: {AgentTheme.CYAN}; border: 1px solid {AgentTheme.CYAN}40;"
+        )
+        self._layout.addWidget(self._vault_lbl)
+
         # Konumlandırma: Sağ üst köşeye yakın (Odak çalmadan)
         screen = QApplication.primaryScreen()
         if screen:
             geo = screen.availableGeometry()
-            self._widget.move(geo.width() - 320, 24)
-        self._widget.setFixedSize(305, 46)
+            self._widget.move(geo.width() - 380, 24)
+        self._widget.setFixedSize(365, 46)
 
     # --------------------------------------------------------------------------
     # IStateObserver IMPLEMENTATION
@@ -136,6 +146,7 @@ class StatusFloater(IStateObserver):
         points = metadata.get("points", 0)
         shields = metadata.get("shields", 3)
         streak = metadata.get("streak", 1)
+        vault_mins = metadata.get("saved_minutes", 30)
 
         if not HAS_PYQT or not self._widget:
             return
@@ -144,6 +155,7 @@ class StatusFloater(IStateObserver):
         self._points_lbl.setText(f"🪙 {points}")
         self._streak_lbl.setText(f"🔥 {streak}g")
         self._shields_lbl.setText("🛡️" * max(0, min(3, shields)))
+        self._vault_lbl.setText(f"🏦 {vault_mins}dk")
 
         if new_state == AgentState.FREE_TIME:
             self._status_lbl.setText(f"🟢 {t('free_time')}")

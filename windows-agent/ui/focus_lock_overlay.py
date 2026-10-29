@@ -31,6 +31,7 @@ except ImportError:
 
 from core.interfaces import AgentState, ILockEnforcer, IStateObserver
 from core.i18n import t
+from core.lingua_engine import LinguaEngine
 from ui.theme import AgentTheme
 from ui.active_break_widget import ActiveBreakWidget
 from ui.parent_unlock_modal import ParentUnlockModal
@@ -154,16 +155,64 @@ class FocusLockOverlay(ILockEnforcer, IStateObserver):
         if break_ui:
             card_layout.addWidget(break_ui)
 
-        card_layout.addSpacing(14)
+        # Günün Kelimesi & Zihin Açıcı Sır Kartı
+        lingua = LinguaEngine.get_word_of_the_day()
+        word_card = QFrame()
+        word_card.setStyleSheet(f"background-color: {AgentTheme.BG_ELEVATED}; border-radius: 10px; padding: 6px;")
+        word_layout = QVBoxLayout(word_card)
+        word_layout.setContentsMargins(10, 6, 10, 6)
+        word_layout.setSpacing(2)
+        word_header = QLabel(f"📖 Günün Kelimesi: {lingua['word']}")
+        word_header.setStyleSheet(f"color: {AgentTheme.GOLD}; font-weight: 900; font-size: 12px;")
+        word_desc = QLabel(f"{lingua['meaning']}")
+        word_desc.setStyleSheet(f"color: {AgentTheme.TEXT_MUTED}; font-size: 11px;")
+        word_layout.addWidget(word_header)
+        word_layout.addWidget(word_desc)
+        card_layout.addWidget(word_card)
+
+        card_layout.addSpacing(10)
+
+        # Alt Butonlar Satırı: 5 Dk Mola İste + Ebeveyn Master PIN
+        btns_row = QHBoxLayout()
+        btns_row.setSpacing(8)
+
+        # 5 Dk Mola İste Butonu (Günde 1 Kez Esneklik)
+        self._grace_btn = QPushButton("☕ 5 Dk Mola İste")
+        self._grace_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {AgentTheme.BG_ELEVATED};
+                color: {AgentTheme.CYAN};
+                border: 1px solid {AgentTheme.CYAN}60;
+                border-radius: 10px;
+                padding: 10px 14px;
+                font-weight: bold;
+                font-size: 12px;
+            }}
+            QPushButton:hover {{
+                background-color: {AgentTheme.CYAN}20;
+            }}
+        """)
+        self._grace_btn.clicked.connect(self._handle_grace_break_click)
+        btns_row.addWidget(self._grace_btn)
 
         # Ebeveyn Acil Kilit Açma Butonu
         unlock_btn = QPushButton(t("unlock_with_pin"))
         unlock_btn.setObjectName("EmergencyUnlockBtn")
         unlock_btn.clicked.connect(self._handle_emergency_unlock_click)
-        card_layout.addWidget(unlock_btn)
+        btns_row.addWidget(unlock_btn)
+
+        card_layout.addLayout(btns_row)
 
         center_layout.addWidget(card)
         self._window.setCentralWidget(center_widget)
+
+    def _handle_grace_break_click(self) -> None:
+        """Çocuk 5 dakikalık mola esnekliği istediğinde tetiklenir."""
+        if hasattr(self, "_grace_btn"):
+            self._grace_btn.setEnabled(False)
+            self._grace_btn.setText("⏳ 5 Dk Mola Aktif!")
+        if self.on_break_action:
+            self.on_break_action("5_dk_esneklik_molasi")
 
     def _handle_emergency_unlock_click(self) -> None:
         modal = ParentUnlockModal(on_unlock_success=self.on_emergency_unlock)

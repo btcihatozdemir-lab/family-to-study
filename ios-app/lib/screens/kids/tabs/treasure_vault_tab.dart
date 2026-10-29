@@ -2,7 +2,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../models/user_model.dart';
 import '../../../models/reward_model.dart';
+import '../../../models/lingua_model.dart';
 import '../../../services/supabase_service.dart';
+import '../../../services/time_vault_service.dart';
 import '../../../theme/kids_theme.dart';
 import '../modals/gift_points_modal.dart';
 
@@ -25,6 +27,9 @@ class _TreasureVaultTabState extends State<TreasureVaultTab> with SingleTickerPr
   List<RewardModel> _rewards = [];
   String _selectedTier = 'all';
   int _todayCompletedTasks = 0;
+  LinguaModel? _linguaWord;
+  int _savedVaultMinutes = 30;
+  bool _graceBreakRequested = false;
 
   // Şans Çarkı Animasyon State
   late AnimationController _wheelAnimCtrl;
@@ -35,6 +40,7 @@ class _TreasureVaultTabState extends State<TreasureVaultTab> with SingleTickerPr
   void initState() {
     super.initState();
     _loadRewards();
+    _loadExtraFeatures();
 
     _wheelAnimCtrl = AnimationController(
       vsync: this,
@@ -57,6 +63,17 @@ class _TreasureVaultTabState extends State<TreasureVaultTab> with SingleTickerPr
         _rewards = list;
         _todayCompletedTasks = count;
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadExtraFeatures() async {
+    final vault = await TimeVaultService.fetchTimeVault(widget.student.id);
+    final word = await TimeVaultService.fetchWordOfTheDay();
+    if (mounted) {
+      setState(() {
+        if (vault != null) _savedVaultMinutes = vault.savedMinutes;
+        _linguaWord = word;
       });
     }
   }
@@ -453,15 +470,25 @@ class _TreasureVaultTabState extends State<TreasureVaultTab> with SingleTickerPr
           _buildVaultBalanceCard(),
           const SizedBox(height: 14),
 
-          // 2. Şans Çarkı Kartı (Lucky Wheel)
+          // 2. Zaman Bankası & 5 Dk Mola İste Kartı
+          _buildTimeVaultAndGraceCard(),
+          const SizedBox(height: 14),
+
+          // 3. Günün Kelimesi & Zihin Açıcı Sır Kartı
+          if (_linguaWord != null) ...[
+            _buildWordOfTheDayCard(),
+            const SizedBox(height: 14),
+          ],
+
+          // 4. Şans Çarkı Kartı (Lucky Wheel)
           _buildLuckyWheelCard(),
           const SizedBox(height: 14),
 
-          // 3. Kardeşe Puan Gönder & Dayanışma Kartı
+          // 5. Kardeşe Puan Gönder & Dayanışma Kartı
           _buildSiblingGiftCard(),
           const SizedBox(height: 18),
 
-          // 4. Ödül Marketi Başlığı & Filtre Hapları
+          // 6. Ödül Marketi Başlığı & Filtre Hapları
           _buildMarketHeader(),
           const SizedBox(height: 12),
 
@@ -479,6 +506,130 @@ class _TreasureVaultTabState extends State<TreasureVaultTab> with SingleTickerPr
             ..._filteredRewards.map((r) => _buildRewardCard(r)),
 
           const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeVaultAndGraceCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: KidsTheme.surfaceElevated,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('🏦', style: TextStyle(fontSize: 22)),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Zaman Bankası & Esneklik', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
+                    Text('Hafta içi biriktirdiğin süre hafta sonu açılır', style: TextStyle(color: KidsTheme.textMuted, fontSize: 11)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF06B6D4).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$_savedVaultMinutes dk Birikti',
+                  style: const TextStyle(color: Color(0xFF06B6D4), fontWeight: FontWeight.w900, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _graceBreakRequested
+                  ? null
+                  : () async {
+                      setState(() => _graceBreakRequested = true);
+                      final res = await TimeVaultService.requestGraceBreak();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: res['success'] == true ? Colors.teal : Colors.orange,
+                            content: Text(res['message']?.toString() ?? 'Mola isteği iletildi.'),
+                          ),
+                        );
+                      }
+                    },
+              icon: const Text('☕', style: TextStyle(fontSize: 16)),
+              label: Text(
+                _graceBreakRequested ? '5 Dk Mola Aktif Edildi' : '5 Dakika Acil Mola İste (Günde 1 Hak)',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF06B6D4),
+                side: BorderSide(color: const Color(0xFF06B6D4).withOpacity(0.5)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWordOfTheDayCard() {
+    final w = _linguaWord!;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: KidsTheme.surfaceElevated,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: KidsTheme.gold.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('📖', style: TextStyle(fontSize: 22)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Günün Kelimesi: ${w.word}', style: const TextStyle(color: KidsTheme.goldLight, fontWeight: FontWeight.w900, fontSize: 15)),
+                    Text(w.meaning, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (w.etymology != null && w.etymology!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '💡 Kökeni: ${w.etymology}',
+                style: const TextStyle(color: KidsTheme.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            'Örnek: "${w.sampleSentence}"',
+            style: const TextStyle(color: Colors.white60, fontSize: 11),
+          ),
         ],
       ),
     );

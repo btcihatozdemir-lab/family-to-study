@@ -10,6 +10,7 @@ import 'theme/fam_theme.dart';
 import 'theme/kids_theme.dart';
 import 'main_fam.dart';
 import 'main_kids.dart';
+import 'screens/coach/coach_home_screen.dart';
 import 'l10n/app_localizations.dart';
 
 /// ===========================================================================
@@ -223,6 +224,38 @@ class EcosystemSelectorScreen extends StatelessWidget {
                       ],
                     );
                   },
+                ),
+                const SizedBox(height: 18),
+
+                // KART 3: KADEME KOÇLUĞU & ÖĞRETMEN MASASI
+                InkWell(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CoachHomeScreen()),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B).withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.08)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('🎓', style: TextStyle(fontSize: 22)),
+                        SizedBox(width: 12),
+                        Text(
+                          'Kademe Koçu / Öğretmen Masasına Geç',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 14),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
