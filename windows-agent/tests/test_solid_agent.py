@@ -280,6 +280,45 @@ class TestSolidArchitecture(unittest.TestCase):
         if os.path.exists("/tmp/test_vault.json"):
             os.remove("/tmp/test_vault.json")
 
+    def test_subject_study_tracker_and_lingua_idioms(self) -> None:
+        """Branş ders takibi ve Deyim/Atasözü motoru doğru çalışmalıdır."""
+        from core.subject_tracker import SubjectStudyTracker
+        from core.lingua_engine import LinguaEngine
+
+        tracker = SubjectStudyTracker(default_subject="matematik")
+        self.assertEqual(tracker.active_subject, "matematik")
+
+        # 1. Matematik Net Hesabı (LGS: 3 Yanlış 1 Doğruyu Götürür)
+        net = tracker.record_math_score(questions=30, correct=24, wrong=6)
+        self.assertEqual(net, 22.0)
+        self.assertEqual(tracker.calculate_net(), 22.0)
+
+        # 2. Türkçe Branşına Geçiş ve Kitap / Deyim Takibi
+        tracker.set_subject("turkce")
+        self.assertEqual(tracker.active_subject, "turkce")
+        tracker.record_turkish_reading(pages=35, idioms=3, words=7)
+        self.assertEqual(tracker.pages_read, 35)
+        self.assertEqual(tracker.idioms_learned, 3)
+
+        # 3. İngilizce Branşı ve Kelime Haznesi (Vocab)
+        tracker.set_subject("ingilizce")
+        tracker.record_english_vocab(words=10, questions=20)
+        self.assertGreaterEqual(tracker.words_learned, 17)
+
+        # 4. Özet Kontrolü
+        summary = tracker.get_summary()
+        self.assertEqual(summary["subject"], "ingilizce")
+        self.assertEqual(summary["pages_read"], 35)
+
+        # 5. Günün Deyimi / Atasözü Testi
+        idiom_data = LinguaEngine.get_idiom_of_the_day()
+        self.assertIn("idiom", idiom_data)
+        self.assertIn("meaning", idiom_data)
+        self.assertIn("question", idiom_data)
+        correct_idx = idiom_data["correct_index"]
+        self.assertTrue(LinguaEngine.verify_answer(idiom_data, correct_idx))
+        self.assertFalse(LinguaEngine.verify_answer(idiom_data, (correct_idx + 1) % 3))
+
 
 if __name__ == "__main__":
     unittest.main()

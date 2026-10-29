@@ -4,6 +4,7 @@ import '../../../services/supabase_service.dart';
 import '../../../services/subscription_service.dart';
 import '../../paywall_screen.dart';
 import '../../../theme/fam_theme.dart';
+import '../modals/student_subject_report_modal.dart';
 
 class LiveDashboardTab extends StatefulWidget {
   final String familyId;
@@ -652,11 +653,22 @@ class _LiveDashboardTabState extends State<LiveDashboardTab> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: [
+                OutlinedButton.icon(
+                  onPressed: () => StudentSubjectReportModal.show(context, child, widget.familyId),
+                  icon: const Text('📊', style: TextStyle(fontSize: 14)),
+                  label: const Text('Branş Karnesi', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: const Color(0xFF38BDF8).withOpacity(0.5)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _showSetStateModal(child),
                     icon: const Text('⚡', style: TextStyle(fontSize: 14)),
-                    label: const Text('Durumu Yönet'),
+                    label: const Text('Durum'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: FamTheme.primary,
                       foregroundColor: Colors.white,
@@ -666,7 +678,7 @@ class _LiveDashboardTabState extends State<LiveDashboardTab> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 OutlinedButton(
                   onPressed: () async {
                     // Quick Free / Unlock
@@ -678,10 +690,10 @@ class _LiveDashboardTabState extends State<LiveDashboardTab> {
                   },
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: Colors.white.withOpacity(0.15)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Kilidi Aç', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  child: const Text('Kilidi Aç', style: TextStyle(color: Colors.white70, fontSize: 12)),
                 ),
               ],
             ),

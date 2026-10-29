@@ -12,6 +12,7 @@ import '../modals/grace_period_modal.dart';
 import '../modals/success_album_modal.dart';
 import '../modals/weekly_interview_modal.dart';
 import '../modals/propose_task_modal.dart';
+import '../modals/subject_coach_discovery_modal.dart';
 
 class MissionsTab extends StatefulWidget {
   final UserModel student;
@@ -182,6 +183,9 @@ class _MissionsTabState extends State<MissionsTab> {
 
           // 2. ODAKLANMA UÇUŞU & DERS KRONOMETRESİ BAŞLATICI
           _buildFocusFlightLauncher(),
+
+          // 2.1 BRANŞ KOÇLUĞU & KULÜPLERİM BANNERI
+          _buildCoachClubBanner(),
 
           // 3. BİLİŞSEL ENERJİ MOLASI & RUŞETİ (SU İÇ, CAMI AÇ, ESNE, YÜRÜ)
           ActiveBreakWidget(
@@ -378,11 +382,86 @@ class _MissionsTabState extends State<MissionsTab> {
     );
   }
 
+  Widget _buildCoachClubBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF1E293B),
+            const Color(0xFF38BDF8).withOpacity(0.15),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFF38BDF8).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Center(child: Text('🎓', style: TextStyle(fontSize: 22))),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Branş Koçluğu & Kulüp Ligi',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Matematik neti, kitap okuma ve İngilizce kelimelerini kaydet!',
+                  style: TextStyle(color: KidsTheme.textMuted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => SubjectCoachDiscoveryModal(student: widget.student),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF38BDF8),
+              foregroundColor: const Color(0xFF0F172A),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Keşfet & Gir', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuickActionHub() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
+          _buildActionPill(
+            icon: '🎓',
+            label: 'Branş Koçlarım',
+            color: const Color(0xFF38BDF8),
+            onTap: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => SubjectCoachDiscoveryModal(student: widget.student),
+            ),
+          ),
           _buildActionPill(
             icon: '💡',
             label: 'Görev Öner',
