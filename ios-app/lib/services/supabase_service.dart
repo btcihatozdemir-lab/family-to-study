@@ -15,6 +15,8 @@ import '../models/message_model.dart';
 import '../models/submission_model.dart';
 import '../models/appeal_model.dart';
 import '../models/redemption_model.dart';
+import '../models/barter_model.dart';
+import '../models/family_contract_model.dart';
 
 class SupabaseService {
   static const String supabaseUrl = 'https://pljxviezoilirlsoavto.supabase.co';
@@ -1823,5 +1825,126 @@ class SupabaseService {
       print('[triggerDailyZeroViolationBonus] Hata: $e');
       return false;
     }
+  }
+
+  /// Öğrencinin Şehir, İlçe ve Okul Bilgilerini Güncelle
+  static Future<bool> updateStudentLocation({
+    required String studentId,
+    required String city,
+    required String district,
+    String? schoolName,
+    int? gradeLevel,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'city': city.trim(),
+        'district': district.trim(),
+      };
+      if (schoolName != null) data['school_name'] = schoolName.trim();
+      if (gradeLevel != null) data['grade_level'] = gradeLevel;
+
+      await client.from('users').update(data).eq('id', studentId);
+      return true;
+    } catch (e) {
+      print('[updateStudentLocation] Hata: $e');
+      return false;
+    }
+  }
+
+  /// Bölgesel & Çevre İller Liderlik Sıralamasını Çek
+  static Future<Map<String, dynamic>> fetchRegionalLeaderboard({
+    required String studentId,
+    String subject = 'matematik',
+    String scope = 'city', // 'school', 'city', 'region'
+  }) async {
+    try {
+      final res = await client.rpc('get_regional_leaderboard', params: {
+        'p_student_id': studentId,
+        'p_subject': subject.toLowerCase().trim(),
+        'p_scope': scope,
+      });
+      if (res != null) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      print('[fetchRegionalLeaderboard] Hata: $e');
+    }
+    return {'success': false, 'leaderboard': []};
+  }
+
+  /// Anlamlı Takas Pazarı Ödüllerini Çek
+  static Future<List<BarterItemModel>> fetchBarterItems(String familyId) async {
+    try {
+      // Önce varsayılan ödülleri doldur
+      await client.rpc('seed_default_barter_items', params: {'p_family_id': familyId});
+
+      final res = await client
+          .from('barter_market_items')
+          .select('*')
+          .eq('family_id', familyId)
+          .eq('is_active', true)
+          .order('cost_points', ascending: true);
+
+      return (res as List).map((e) => BarterItemModel.fromJson(e)).toList();
+    } catch (e) {
+      print('[fetchBarterItems] Hata: $e');
+      return [];
+    }
+  }
+
+  /// Anlamlı Takas Puanı Kullanma
+  static Future<Map<String, dynamic>> redeemBarterItem({
+    required String familyId,
+    required String studentId,
+    required String itemId,
+  }) async {
+    try {
+      final res = await client.rpc('redeem_barter_item', params: {
+        'p_family_id': familyId,
+        'p_student_id': studentId,
+        'p_item_id': itemId,
+      });
+      if (res != null) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      print('[redeemBarterItem] Hata: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+    return {'success': false, 'message': 'İşlem başarısız.'};
+  }
+
+  /// Haftalık Sözleşme ve Joker Gün Durumunu Sorgula / Talep Et
+  static Future<Map<String, dynamic>> checkAndClaimWeeklyContract({
+    required String familyId,
+    required String studentId,
+  }) async {
+    try {
+      final res = await client.rpc('check_and_claim_weekly_contract', params: {
+        'p_family_id': familyId,
+        'p_student_id': studentId,
+      });
+      if (res != null) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      print('[checkAndClaimWeeklyContract] Hata: $e');
+    }
+    return {'success': false, 'message': 'Sözleşme kontrol edilemedi.'};
+  }
+
+  /// Haftalık Aile Gazetesini Çek / Üret
+  static Future<WeeklyNewspaperModel?> fetchWeeklyNewspaper(String familyId) async {
+    try {
+      final res = await client.rpc('get_or_generate_weekly_newspaper', params: {
+        'p_family_id': familyId,
+      });
+      if (res != null && res['success'] == true) {
+        return WeeklyNewspaperModel.fromJson(Map<String, dynamic>.from(res));
+      }
+    } catch (e) {
+      print('[fetchWeeklyNewspaper] Hata: $e');
+    }
+    return null;
   }
 }

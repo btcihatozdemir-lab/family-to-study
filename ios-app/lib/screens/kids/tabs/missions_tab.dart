@@ -13,6 +13,10 @@ import '../modals/success_album_modal.dart';
 import '../modals/weekly_interview_modal.dart';
 import '../modals/propose_task_modal.dart';
 import '../modals/subject_coach_discovery_modal.dart';
+import '../modals/regional_leaderboard_modal.dart';
+import '../modals/barter_market_modal.dart';
+import '../modals/weekly_contract_modal.dart';
+import '../modals/family_newspaper_modal.dart';
 
 class MissionsTab extends StatefulWidget {
   final UserModel student;
@@ -451,6 +455,30 @@ class _MissionsTabState extends State<MissionsTab> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
+          _buildActionPill(
+            icon: '📍',
+            label: '${widget.student.city} & Bölge Ligi',
+            color: const Color(0xFF38BDF8),
+            onTap: () => RegionalLeaderboardModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '🤝',
+            label: 'Takas Pazarı',
+            color: const Color(0xFF10B981),
+            onTap: () => BarterMarketModal.show(context, widget.student, onPointsChanged: widget.onRefreshUser),
+          ),
+          _buildActionPill(
+            icon: '📜',
+            label: 'Joker Sözleşme',
+            color: const Color(0xFFF59E0B),
+            onTap: () => WeeklyContractModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '📰',
+            label: 'Aile Gazetesi',
+            color: const Color(0xFF8B5CF6),
+            onTap: () => FamilyNewspaperModal.show(context, widget.student),
+          ),
           _buildActionPill(
             icon: '🎓',
             label: 'Branş Koçlarım',

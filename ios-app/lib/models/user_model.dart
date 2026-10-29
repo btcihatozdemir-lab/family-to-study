@@ -17,6 +17,10 @@ class UserModel {
   final String roleTitle;
   final String gender;
   final bool isPrimaryAdmin;
+  final String city;
+  final String district;
+  final String? schoolName;
+  final int gradeLevel;
 
   UserModel({
     required this.id,
@@ -37,6 +41,10 @@ class UserModel {
     this.roleTitle = 'Veli',
     this.gender = 'male',
     this.isPrimaryAdmin = false,
+    this.city = 'Düzce',
+    this.district = 'Akçakoca',
+    this.schoolName,
+    this.gradeLevel = 7,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -74,6 +82,12 @@ class UserModel {
       roleTitle: rawTitle,
       gender: avatar['gender']?.toString() ?? 'male',
       isPrimaryAdmin: avatar['isPrimaryAdmin'] == true || avatar['is_primary_admin'] == true,
+      city: json['city']?.toString() ?? 'Düzce',
+      district: json['district']?.toString() ?? 'Akçakoca',
+      schoolName: json['school_name']?.toString(),
+      gradeLevel: json['grade_level'] is int
+          ? json['grade_level']
+          : int.tryParse(json['grade_level']?.toString() ?? '7') ?? 7,
     );
   }
 
