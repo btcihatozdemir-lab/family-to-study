@@ -8,6 +8,7 @@ import 'models/user_model.dart';
 import 'theme/fam_theme.dart';
 import 'screens/fam/fam_auth_screen.dart';
 import 'screens/fam/fam_home_screen.dart';
+import 'l10n/app_localizations.dart';
 
 /// ===========================================================================
 /// main_fam.dart - FAMILYTOSTUDY FAM (EBEVEYN & VELİ YÖNETİM UYGULAMASI)
@@ -107,6 +108,8 @@ class _FamAppState extends State<FamApp> {
     return MaterialApp(
       title: 'FamilyToStudy Fam',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         dragDevices: {
           PointerDeviceKind.touch,

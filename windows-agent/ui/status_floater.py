@@ -27,6 +27,7 @@ except ImportError:
     HAS_PYQT = False
 
 from core.interfaces import AgentState, IStateObserver
+from core.i18n import t
 from ui.theme import AgentTheme
 
 
@@ -145,7 +146,7 @@ class StatusFloater(IStateObserver):
         self._shields_lbl.setText("🛡️" * max(0, min(3, shields)))
 
         if new_state == AgentState.FREE_TIME:
-            self._status_lbl.setText("🟢 Serbest Zaman")
+            self._status_lbl.setText(f"🟢 {t('free_time')}")
             self._status_lbl.setStyleSheet(f"font-size: 10px; color: {AgentTheme.EMERALD}; font-weight: bold;")
             self._widget.show()
         else:

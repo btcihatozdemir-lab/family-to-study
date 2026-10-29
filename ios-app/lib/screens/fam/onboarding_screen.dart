@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/fam_theme.dart';
 import '../../services/supabase_service.dart';
+import '../../l10n/app_localizations.dart';
 import 'fam_home_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -156,6 +157,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: FamTheme.background,
       body: SafeArea(
@@ -167,7 +169,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildHeader(),
+                  _buildHeader(l10n),
                   const SizedBox(height: 24),
 
                   // Sekmeler
@@ -189,9 +191,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                       labelColor: Colors.white,
                       unselectedLabelColor: FamTheme.textMuted,
                       labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                      tabs: const [
-                        Tab(icon: Icon(Icons.add_home_rounded, size: 18), text: 'Kendi Ailemi Kur'),
-                        Tab(icon: Icon(Icons.group_add_rounded, size: 18), text: 'Eşimin Ailesine Katıl'),
+                      tabs: [
+                        Tab(icon: const Icon(Icons.add_home_rounded, size: 18), text: l10n.createMyFamily),
+                        Tab(icon: const Icon(Icons.group_add_rounded, size: 18), text: l10n.joinPartnerFamily),
                       ],
                     ),
                   ),
@@ -207,8 +209,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                     child: TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildCreateFamilyTab(),
-                        _buildJoinFamilyTab(),
+                        _buildCreateFamilyTab(l10n),
+                        _buildJoinFamilyTab(l10n),
                       ],
                     ),
                   ),
@@ -221,7 +223,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(AppLocalizations l10n) {
     return Column(
       children: [
         Container(
@@ -247,9 +249,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
           ),
         ),
         const SizedBox(height: 14),
-        const Text(
-          'FamilyOS\'a Hoş Geldiniz',
-          style: TextStyle(
+        Text(
+          l10n.onboardingWelcomeTitle,
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 24,
             fontWeight: FontWeight.w900,
@@ -257,9 +259,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Hemen ailenizi kurun veya mevcut aileye katılın',
-          style: TextStyle(
+        Text(
+          l10n.onboardingWelcomeSubtitle,
+          style: const TextStyle(
             color: FamTheme.textMuted,
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -292,7 +294,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildCreateFamilyTab() {
+  Widget _buildCreateFamilyTab(AppLocalizations l10n) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -307,14 +309,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: FamTheme.amber.withOpacity(0.4)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Text('👑', style: TextStyle(fontSize: 18)),
-                SizedBox(width: 8),
+                const Text('👑', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'İlk aile kurulumunuza özel 7 Gün Sınırsız Pro Deneme hediye!',
-                    style: TextStyle(color: FamTheme.amber, fontSize: 11, fontWeight: FontWeight.w700),
+                    l10n.sevenDayTrialBadge,
+                    style: const TextStyle(color: FamTheme.amber, fontSize: 11, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -324,7 +326,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
 
           _buildInputField(
             controller: _createFamilyNameController,
-            label: 'AİLE ADI / SOYADI',
+            label: l10n.familyNameLabel,
             hint: 'Örn: Özdemir Ailesi',
             icon: Icons.cottage_rounded,
           ),
@@ -332,7 +334,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
 
           _buildInputField(
             controller: _createParentNameController,
-            label: 'EBEVEYN ADI VE SOYADI',
+            label: l10n.parentNameLabel,
             hint: 'Örn: Caner Özdemir',
             icon: Icons.person_rounded,
           ),
@@ -343,7 +345,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             children: [
               Expanded(
                 child: _buildDropdown(
-                  label: 'ROL / ÜNVAN',
+                  label: l10n.roleLabel,
                   value: _createRoleTitle,
                   items: const ['Baba', 'Anne', 'Ebeveyn'],
                   onChanged: (val) {
@@ -360,7 +362,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               const SizedBox(width: 10),
               Expanded(
                 child: _buildDropdown(
-                  label: 'CİNSİYET',
+                  label: l10n.genderLabel,
                   value: _createGender,
                   items: const ['male', 'female'],
                   displayMap: const {'male': 'Erkek 👨', 'female': 'Kadın 👩'},
@@ -388,14 +390,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                     height: 22,
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                   )
-                : const Row(
+                : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.rocket_launch_rounded, size: 20),
-                      SizedBox(width: 8),
+                      const Icon(Icons.rocket_launch_rounded, size: 20),
+                      const SizedBox(width: 8),
                       Text(
-                        'Kendi Ailemi Kur & Başla',
-                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                        l10n.createAndStartButton,
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
                       ),
                     ],
                   ),
@@ -405,7 +407,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildJoinFamilyTab() {
+  Widget _buildJoinFamilyTab(AppLocalizations l10n) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -434,7 +436,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
 
           _buildInputField(
             controller: _joinFamilyCodeController,
-            label: 'EŞİNİZİN AİLE KODU',
+            label: l10n.partnerCodeLabel,
             hint: 'Örn: FAM-9X2A veya FAMZDE-2026',
             icon: Icons.key_rounded,
             capitalization: TextCapitalization.characters,
@@ -443,7 +445,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
 
           _buildInputField(
             controller: _joinParentNameController,
-            label: 'EBEVEYN ADI VE SOYADI',
+            label: l10n.parentNameLabel,
             hint: 'Örn: Ayşe Özdemir',
             icon: Icons.person_rounded,
           ),
@@ -454,7 +456,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             children: [
               Expanded(
                 child: _buildDropdown(
-                  label: 'ROL / ÜNVAN',
+                  label: l10n.roleLabel,
                   value: _joinRoleTitle,
                   items: const ['Anne', 'Baba', 'Ebeveyn'],
                   onChanged: (val) {
@@ -471,7 +473,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               const SizedBox(width: 10),
               Expanded(
                 child: _buildDropdown(
-                  label: 'CİNSİYET',
+                  label: l10n.genderLabel,
                   value: _joinGender,
                   items: const ['female', 'male'],
                   displayMap: const {'female': 'Kadın 👩', 'male': 'Erkek 👨'},
@@ -499,14 +501,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                     height: 22,
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                   )
-                : const Row(
+                : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.link_rounded, size: 20),
-                      SizedBox(width: 8),
+                      const Icon(Icons.link_rounded, size: 20),
+                      const SizedBox(width: 8),
                       Text(
-                        'Eşimin Ailesine Katıl',
-                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                        l10n.joinFamilyButton,
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
                       ),
                     ],
                   ),

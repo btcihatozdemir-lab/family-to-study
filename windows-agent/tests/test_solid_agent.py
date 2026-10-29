@@ -235,6 +235,32 @@ class TestSolidArchitecture(unittest.TestCase):
         self.assertTrue(hasattr(ui.status_floater, "StatusFloater"))
         self.assertTrue(hasattr(ui.focus_lock_overlay, "FocusLockOverlay"))
 
+    def test_i18n_tr_en_de_multi_language_support(self) -> None:
+        """Windows Ajanı TR, EN ve DE dillerini dinamik olarak desteklemelidir."""
+        from core.i18n import I18n, t
+
+        # 1. Türkçe Test
+        I18n.init(force_lang="tr")
+        self.assertEqual(I18n.get_language(), "tr")
+        self.assertEqual(t("focus_mode"), "Odaklanma Saati")
+        self.assertEqual(t("streak_days", days=5), "5 Gün Seri")
+
+        # 2. İngilizce Test
+        I18n.init(force_lang="en")
+        self.assertEqual(I18n.get_language(), "en")
+        self.assertEqual(t("focus_mode"), "Study & Focus Mode")
+        self.assertEqual(t("streak_days", days=5), "5 Day Streak")
+
+        # 3. Almanca Test
+        I18n.init(force_lang="de")
+        self.assertEqual(I18n.get_language(), "de")
+        self.assertEqual(t("focus_mode"), "Lern- & Fokuszeit")
+        self.assertEqual(t("streak_days", days=5), "5 Tage Serie")
+
+        # 4. Fallback Test (Bilinmeyen dil fallback)
+        I18n.set_language("tr")
+        self.assertEqual(t("focus_mode"), "Odaklanma Saati")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,7 @@ import 'models/user_model.dart';
 import 'theme/kids_theme.dart';
 import 'screens/kids/kids_auth_screen.dart';
 import 'screens/kids/kids_home_screen.dart';
+import 'l10n/app_localizations.dart';
 
 /// ===========================================================================
 /// main_kids.dart - FAMILYTOSTUDY KIDS (ÖĞRENCİ & ÇOCUK ODAK VE GÖREV UYGULAMASI)
@@ -130,6 +131,8 @@ class _KidsAppState extends State<KidsApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'FamilyToStudy Kids',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         dragDevices: {
           PointerDeviceKind.touch,

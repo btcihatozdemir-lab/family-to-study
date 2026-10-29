@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   
   # WebView & Native JS Bridge (iOS 15.8+ tam uyumlu)
   flutter_inappwebview: ^6.1.5
@@ -49,6 +51,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true
   assets:
     - assets/images/kids_logo.png
     - assets/images/family_logo.png

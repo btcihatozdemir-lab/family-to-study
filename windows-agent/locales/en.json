@@ -1,0 +1,34 @@
+{
+  "focus_mode": "Study & Focus Mode",
+  "break_time": "Break Time",
+  "free_time": "Free Time",
+  "wake_up_alarm": "Wake Up Alarm",
+  "active_break": "Active Break",
+  "break_remaining": "Break Remaining: {minutes:02d}:{seconds:02d}",
+  "study_mode_active": "Study Mode Active! Screen Locked.",
+  "shield_desc": "Focus on your tasks to maintain your shield.",
+  "unlock_with_pin": "🛡️ Unlock with Parent Master PIN",
+  "enter_pin_title": "Parent Master Unlock",
+  "enter_pin_prompt": "Enter 4-Digit Parent PIN:",
+  "wrong_pin": "Incorrect PIN! Unable to unlock.",
+  "unlocked_success": "Screen unlocked successfully.",
+  "coins": "Gold Coins",
+  "shield": "Shield",
+  "streak_days": "{days} Day Streak",
+  "pairing_title": "FamilyOS - Device Pairing",
+  "family_code": "Family Code",
+  "pairing_pin": "6-Digit Pairing PIN",
+  "pair_button": "Pair Device",
+  "quotes": [
+    "🌟 Every great journey begins with a single step!",
+    "🚀 Focus is your greatest superpower!",
+    "💡 Today's effort builds tomorrow's success.",
+    "🦁 Stay brave, strong, and determined!",
+    "🏆 Champions turn challenges into victories."
+  ],
+  "break_cards": [
+    { "title": "Drink Water", "desc": "Drink a glass of water and rehydrate." },
+    { "title": "Rest Your Eyes", "desc": "Look 20 feet away for 20 seconds." },
+    { "title": "Stretching", "desc": "Reach high up and take a deep breath." }
+  ]
+}

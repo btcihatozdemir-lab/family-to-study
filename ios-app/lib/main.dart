@@ -10,6 +10,7 @@ import 'theme/fam_theme.dart';
 import 'theme/kids_theme.dart';
 import 'main_fam.dart';
 import 'main_kids.dart';
+import 'l10n/app_localizations.dart';
 
 /// ===========================================================================
 /// main.dart - APPLICATION SELECTOR & FLAVOR BOOTSTRAP
@@ -117,6 +118,8 @@ class _FamilyOSEcosystemAppState extends State<FamilyOSEcosystemApp> {
     return MaterialApp(
       title: 'FamilyToStudy Ekosistemi',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         dragDevices: {
           PointerDeviceKind.touch,

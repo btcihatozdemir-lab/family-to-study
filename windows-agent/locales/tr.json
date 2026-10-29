@@ -1,0 +1,34 @@
+{
+  "focus_mode": "Odaklanma Saati",
+  "break_time": "Mola Vakti",
+  "free_time": "Serbest Zaman",
+  "wake_up_alarm": "Uyanma Vakti",
+  "active_break": "Aktif Mola",
+  "break_remaining": "Kalan Mola: {minutes:02d}:{seconds:02d}",
+  "study_mode_active": "Ders Saati Aktif! Ekran Kilitlendi.",
+  "shield_desc": "Kalkanını korumak için dersine odaklan.",
+  "unlock_with_pin": "🛡️ Ebeveyn Master PIN ile Kilit Aç",
+  "enter_pin_title": "Ebeveyn Yetkili Kilidi",
+  "enter_pin_prompt": "4 Haneli Ebeveyn PIN'ini Girin:",
+  "wrong_pin": "Hatalı PIN! Kilit açılamadı.",
+  "unlocked_success": "Kilit başarıyla kaldırıldı.",
+  "coins": "Altın",
+  "shield": "Kalkan",
+  "streak_days": "{days} Gün Seri",
+  "pairing_title": "FamilyOS - Cihaz Eşleştirme",
+  "family_code": "Aile Kodu",
+  "pairing_pin": "6 Haneli Eşleştirme PIN",
+  "pair_button": "Cihazı Eşleştir",
+  "quotes": [
+    "🌟 Her başarılı yolculuk tek bir adımla başlar!",
+    "🚀 Odaklanma senin en güçlü süper gücün!",
+    "💡 Bugünün çabası, yarının büyük başarısıdır.",
+    "🦁 Aslan gibi güçlü ve kararlı kal!",
+    "🏆 Şampiyonlar zorlukları fırsata çevirir."
+  ],
+  "break_cards": [
+    { "title": "Su İç", "desc": "1 Bardak taze su iç ve vücudunu canlandır." },
+    { "title": "Gözlerini Dinlendir", "desc": "20 saniye boyunca 6 metre uzağa bak." },
+    { "title": "Esneme Hareketi", "desc": "Kollarını yukarı kaldır ve derin bir nefes al." }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "@@locale": "tr",
+  "appTitle": "FamilyOS - FamilyToStudy",
+  "parentPortalTitle": "Ebeveyn & Veli Komuta Merkezi",
+  "kidsPortalTitle": "Öğrenci & Odaklanma Modu",
+
+  "signInWithApple": "Apple ile Ebeveyn Girişi Yap",
+  "signInWithGoogle": "Google ile Ebeveyn Girişi Yap",
+  "orParentPin": "veya Ebeveyn Şifresi ile",
+  "existingFamilyTab": "Mevcut Aile",
+  "createFamilyTab": "Yeni Aile Kur",
+  "familyCodeHint": "AİLE KODU (FAMZDE-2026)",
+  "parentPinHint": "4 Haneli Ebeveyn PIN",
+  "loginButton": "Giriş Yap",
+
+  "onboardingWelcomeTitle": "FamilyOS'a Hoş Geldiniz",
+  "onboardingWelcomeSubtitle": "Hemen ailenizi kurun veya mevcut aileye katılın",
+  "createMyFamily": "Kendi Ailemi Kur",
+  "joinPartnerFamily": "Eşimin Ailesine Katıl",
+  "sevenDayTrialBadge": "İlk aile kurulumunuza özel 7 Gün Sınırsız Pro Deneme hediye!",
+  "familyNameLabel": "AİLE ADI / SOYADI",
+  "parentNameLabel": "EBEVEYN ADI VE SOYADI",
+  "partnerCodeLabel": "EŞİNİZİN AİLE KODU",
+  "roleLabel": "ROL / ÜNVAN",
+  "genderLabel": "CİNSİYET",
+  "createAndStartButton": "Kendi Ailemi Kur & Başla",
+  "joinFamilyButton": "Eşimin Ailesine Katıl",
+
+  "paywallTitle": "FamilyOS Pro'ya Yükselt",
+  "paywallSubtitle": "Tüm çocuk cihazları, Windows ekran kilidi ve canlı kalkan koruması tek pakette.",
+  "freeTrialButton": "7 Gün Ücretsiz Dene ve Başla",
+  "monthlyPlan": "Aylık Pro",
+  "annualPlan": "Yıllık Pro (2 Ay Hediye)",
+  "restorePurchases": "Satın Alımları Geri Yükle",
+  "cancelAnytime": "İstediğiniz zaman App Store ayarlarından iptal edebilirsiniz.",
+
+  "dangerZoneTitle": "Tehlikeli Bölge (Danger Zone)",
+  "dangerZoneDesc": "App Store Gizlilik Şartı (Guideline 5.1.1(v)) gereğince hesabınızı ve ailenize ait tüm verileri istediğiniz zaman anında ve kalıcı olarak silebilirsiniz.",
+  "deleteAccountButton": "Hesabımı ve Tüm Aile Verilerimi Kalıcı Olarak Sil",
+  "deleteAccountConfirmTitle": "Hesabı Kalıcı Olarak Sil",
+  "deleteAccountConfirmDesc": "Bu işlem geri alınamaz! Ailenize ait tüm profiller, görevler ve kayıtlar veritabanımızdan kalıcı olarak silinecektir. Devam etmek istiyor musunuz?",
+  "cancel": "Vazgeç",
+  "confirmDelete": "Evet, Kalıcı Olarak Sil",
+
+  "statusFocusTime": "Odaklanma Saati",
+  "statusBreakTime": "Mola Vakti",
+  "statusFreeTime": "Serbest Zaman",
+  "coins": "Altın",
+  "shield": "Kalkan",
+  "streakDays": "{count} Gün Seri",
+  "@streakDays": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "wakeUpTitle": "Günaydın! Yeni Bir Gün Başlıyor",
+  "wakeUpGentleVoice": "Günaydın! Yeni ve harika bir güne hazır mısın? Görevlerin seni bekliyor.",
+  "appMinimizedWarning": "Ders saatin devam ediyor, kalkanını korumak için uygulamaya dönelim.",
+  "taskApprovedVoice": "Tebrikler! Görevin onaylandı, harika iş çıkardın!",
+  "breakFinishedVoice": "Molan bitti, haydi tekrar derse odaklanalım."
+}

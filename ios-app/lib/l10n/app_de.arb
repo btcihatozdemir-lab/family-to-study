@@ -1,0 +1,62 @@
+{
+  "@@locale": "de",
+  "appTitle": "FamilyOS - FamilyToStudy",
+  "parentPortalTitle": "Eltern & Familien Kommandozentrale",
+  "kidsPortalTitle": "Schüler & Fokusmodus",
+
+  "signInWithApple": "Mit Apple anmelden",
+  "signInWithGoogle": "Mit Google anmelden",
+  "orParentPin": "oder mit Eltern-PIN",
+  "existingFamilyTab": "Bestehende Familie",
+  "createFamilyTab": "Neue Familie gründen",
+  "familyCodeHint": "FAMILIEN-CODE (FAM-9X2A)",
+  "parentPinHint": "4-stellige Eltern-PIN",
+  "loginButton": "Anmelden",
+
+  "onboardingWelcomeTitle": "Willkommen bei FamilyOS",
+  "onboardingWelcomeSubtitle": "Erstellen Sie Ihre Familie oder treten Sie einer bestehenden bei",
+  "createMyFamily": "Eigene Familie gründen",
+  "joinPartnerFamily": "Der Familie des Partners beitreten",
+  "sevenDayTrialBadge": "Willkommensgeschenk: 7 Tage unbegrenztes Pro-Abo kostenlos!",
+  "familyNameLabel": "FAMILIENNAME",
+  "parentNameLabel": "VOLLSTÄNDIGER NAME DER ELTERN",
+  "partnerCodeLabel": "FAMILIEN-CODE DES PARTNERS",
+  "roleLabel": "ROLLE / TITEL",
+  "genderLabel": "GESCHLECHT",
+  "createAndStartButton": "Familie gründen & starten",
+  "joinFamilyButton": "Familie beitreten",
+
+  "paywallTitle": "Auf FamilyOS Pro upgraden",
+  "paywallSubtitle": "Unbegrenzte Kindergeräte, Windows-Bildschirmsperre und Live-Schutzschild.",
+  "freeTrialButton": "7 Tage kostenlos testen",
+  "monthlyPlan": "Monatlich Pro",
+  "annualPlan": "Jährlich Pro (2 Monate gratis)",
+  "restorePurchases": "Käufe wiederherstellen",
+  "cancelAnytime": "Jederzeit in den App Store-Einstellungen kündbar.",
+
+  "dangerZoneTitle": "Gefahrenbereich (Danger Zone)",
+  "dangerZoneDesc": "Gemäß App Store Richtlinie 5.1.1(v) können Sie Ihr Konto und alle Familiendaten jederzeit dauerhaft löschen.",
+  "deleteAccountButton": "Mein Konto & alle Daten endgültig löschen",
+  "deleteAccountConfirmTitle": "Konto endgültig löschen",
+  "deleteAccountConfirmDesc": "Diese Aktion kann nicht rückgängig gemacht werden! Alle Profile, Aufgaben und Daten werden dauerhaft gelöscht. Möchten Sie fortfahren?",
+  "cancel": "Abbrechen",
+  "confirmDelete": "Ja, endgültig löschen",
+
+  "statusFocusTime": "Lern- & Fokuszeit",
+  "statusBreakTime": "Pause",
+  "statusFreeTime": "Freizeit",
+  "coins": "Goldmünzen",
+  "shield": "Schutzschild",
+  "streakDays": "{count} Tage Serie",
+  "@streakDays": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "wakeUpTitle": "Guten Morgen! Ein neuer Tag beginnt",
+  "wakeUpGentleVoice": "Guten Morgen! Bereit für einen wunderbaren Tag? Deine Aufgaben warten.",
+  "appMinimizedWarning": "Fokuszeit läuft. Kehre zur App zurück, um dein Schutzschild zu bewahren.",
+  "taskApprovedVoice": "Herzlichen Glückwunsch! Deine Aufgabe wurde genehmigt, super gemacht!",
+  "breakFinishedVoice": "Pause ist vorbei. Lass uns wieder konzentrieren!"
+}

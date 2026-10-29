@@ -1,0 +1,62 @@
+{
+  "@@locale": "en",
+  "appTitle": "FamilyOS - FamilyToStudy",
+  "parentPortalTitle": "Parent & Family Command Center",
+  "kidsPortalTitle": "Student & Focus Mode",
+
+  "signInWithApple": "Sign in with Apple",
+  "signInWithGoogle": "Sign in with Google",
+  "orParentPin": "or with Parent PIN",
+  "existingFamilyTab": "Existing Family",
+  "createFamilyTab": "Create New Family",
+  "familyCodeHint": "FAMILY CODE (FAM-9X2A)",
+  "parentPinHint": "4-Digit Parent PIN",
+  "loginButton": "Log In",
+
+  "onboardingWelcomeTitle": "Welcome to FamilyOS",
+  "onboardingWelcomeSubtitle": "Set up your family workspace or join an existing one",
+  "createMyFamily": "Create My Family",
+  "joinPartnerFamily": "Join Spouse's Family",
+  "sevenDayTrialBadge": "Special gift: 7-Day Unlimited Pro Trial included!",
+  "familyNameLabel": "FAMILY NAME",
+  "parentNameLabel": "PARENT FULL NAME",
+  "partnerCodeLabel": "SPOUSE'S FAMILY CODE",
+  "roleLabel": "ROLE / TITLE",
+  "genderLabel": "GENDER",
+  "createAndStartButton": "Create Family & Start",
+  "joinFamilyButton": "Join Family",
+
+  "paywallTitle": "Upgrade to FamilyOS Pro",
+  "paywallSubtitle": "Unlimited child devices, Windows screen lock and live shield protection.",
+  "freeTrialButton": "Start 7-Day Free Trial",
+  "monthlyPlan": "Monthly Pro",
+  "annualPlan": "Annual Pro (2 Months Free)",
+  "restorePurchases": "Restore Purchases",
+  "cancelAnytime": "Cancel anytime via App Store subscriptions.",
+
+  "dangerZoneTitle": "Danger Zone",
+  "dangerZoneDesc": "Under App Store Guideline 5.1.1(v), you can permanently delete your account and all family data anytime.",
+  "deleteAccountButton": "Permanently Delete My Account & All Family Data",
+  "deleteAccountConfirmTitle": "Permanently Delete Account",
+  "deleteAccountConfirmDesc": "This action cannot be undone! All profiles, tasks, and data belonging to your family will be permanently erased. Do you wish to proceed?",
+  "cancel": "Cancel",
+  "confirmDelete": "Yes, Delete Permanently",
+
+  "statusFocusTime": "Study & Focus Mode",
+  "statusBreakTime": "Break Time",
+  "statusFreeTime": "Free Time",
+  "coins": "Gold Coins",
+  "shield": "Shield",
+  "streakDays": "{count} Day Streak",
+  "@streakDays": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "wakeUpTitle": "Good Morning! A New Day Begins",
+  "wakeUpGentleVoice": "Good morning! Ready for a wonderful day? Your morning missions await.",
+  "appMinimizedWarning": "Study time is active. Return to the app to protect your shield.",
+  "taskApprovedVoice": "Congratulations! Your task has been approved, great job!",
+  "breakFinishedVoice": "Break time is over. Let's get back to focusing!"
+}

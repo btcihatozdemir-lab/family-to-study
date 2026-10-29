@@ -30,6 +30,7 @@ except ImportError:
     HAS_PYQT = False
 
 from core.interfaces import AgentState, ILockEnforcer, IStateObserver
+from core.i18n import t
 from ui.theme import AgentTheme
 from ui.active_break_widget import ActiveBreakWidget
 from ui.parent_unlock_modal import ParentUnlockModal
@@ -98,12 +99,12 @@ class FocusLockOverlay(ILockEnforcer, IStateObserver):
         icon_lbl.setStyleSheet("font-size: 38px;")
         top_row.addWidget(icon_lbl)
 
-        self._title_lbl = QLabel("Ders ve Odak Zamanı")
+        self._title_lbl = QLabel(t("study_mode_active"))
         self._title_lbl.setStyleSheet(f"font-size: 24px; font-weight: 900; color: {AgentTheme.TEXT_WHITE};")
         top_row.addWidget(self._title_lbl)
         card_layout.addLayout(top_row)
 
-        self._sub_lbl = QLabel("Ekran ders süresi boyunca kilitlidir. Dikkatini topla, kalkanlarını koru!")
+        self._sub_lbl = QLabel(t("shield_desc"))
         self._sub_lbl.setStyleSheet(f"font-size: 13px; color: {AgentTheme.TEXT_MUTED};")
         self._sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         card_layout.addWidget(self._sub_lbl)
@@ -156,7 +157,7 @@ class FocusLockOverlay(ILockEnforcer, IStateObserver):
         card_layout.addSpacing(14)
 
         # Ebeveyn Acil Kilit Açma Butonu
-        unlock_btn = QPushButton("🛡️ Ebeveyn Acil Kilit Çöz (Master PIN)")
+        unlock_btn = QPushButton(t("unlock_with_pin"))
         unlock_btn.setObjectName("EmergencyUnlockBtn")
         unlock_btn.clicked.connect(self._handle_emergency_unlock_click)
         card_layout.addWidget(unlock_btn)

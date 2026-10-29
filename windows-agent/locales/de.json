@@ -1,0 +1,34 @@
+{
+  "focus_mode": "Lern- & Fokuszeit",
+  "break_time": "Pause",
+  "free_time": "Freizeit",
+  "wake_up_alarm": "Aufwach-Alarm",
+  "active_break": "Aktive Pause",
+  "break_remaining": "Verbleibende Pause: {minutes:02d}:{seconds:02d}",
+  "study_mode_active": "Lernmodus aktiv! Bildschirm gesperrt.",
+  "shield_desc": "Konzentriere dich, um dein Schutzschild zu bewahren.",
+  "unlock_with_pin": "🛡️ Mit Eltern-Master-PIN entsperren",
+  "enter_pin_title": "Eltern-Master-Entsperrung",
+  "enter_pin_prompt": "4-stellige Eltern-PIN eingeben:",
+  "wrong_pin": "Falsche PIN! Entsperren fehlgeschlagen.",
+  "unlocked_success": "Bildschirm erfolgreich entsperrt.",
+  "coins": "Goldmünzen",
+  "shield": "Schutzschild",
+  "streak_days": "{days} Tage Serie",
+  "pairing_title": "FamilyOS - Gerätekopplung",
+  "family_code": "Familien-Code",
+  "pairing_pin": "6-stellige Kopplungs-PIN",
+  "pair_button": "Gerät koppeln",
+  "quotes": [
+    "🌟 Jede große Reise beginnt mit einem ersten Schritt!",
+    "🚀 Konzentration ist deine größte Superkraft!",
+    "💡 Die Mühe von heute ist der Erfolg von morgen.",
+    "🦁 Bleibe stark, mutig und entschlossen!",
+    "🏆 Champions verwandeln Herausforderungen in Chancen."
+  ],
+  "break_cards": [
+    { "title": "Wasser trinken", "desc": "Trinke ein Glas frisches Wasser." },
+    { "title": "Augen ausruhen", "desc": "Schaue für 20 Sekunden in die Ferne." },
+    { "title": "Dehnen & Strecken", "desc": "Strecke die Arme nach oben und atme tief ein." }
+  ]
+}
