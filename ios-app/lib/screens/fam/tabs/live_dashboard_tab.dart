@@ -5,6 +5,9 @@ import '../../../services/subscription_service.dart';
 import '../../paywall_screen.dart';
 import '../../../theme/fam_theme.dart';
 import '../modals/student_subject_report_modal.dart';
+import '../modals/positive_parenting_modal.dart';
+import '../modals/qr_pairing_modal.dart';
+import '../modals/bilateral_trial_modal.dart';
 
 class LiveDashboardTab extends StatefulWidget {
   final String familyId;
@@ -465,6 +468,36 @@ class _LiveDashboardTabState extends State<LiveDashboardTab> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => QrPairingModal.show(context, widget.familyId, 'FAM-2026'),
+                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 14, color: Color(0xFF38BDF8)),
+                  label: const Text('Sihirli QR Bağlantı', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: const Color(0xFF38BDF8).withOpacity(0.4)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => BilateralTrialModal.show(context, widget.familyId),
+                  icon: const Icon(Icons.card_giftcard_rounded, size: 14, color: FamTheme.primaryLight),
+                  label: const Text('+14 Gün Pro Hediye', style: TextStyle(color: FamTheme.primaryLight, fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: FamTheme.primaryLight.withOpacity(0.4)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -655,15 +688,26 @@ class _LiveDashboardTabState extends State<LiveDashboardTab> {
               children: [
                 OutlinedButton.icon(
                   onPressed: () => StudentSubjectReportModal.show(context, child, widget.familyId),
-                  icon: const Text('📊', style: TextStyle(fontSize: 14)),
-                  label: const Text('Branş Karnesi', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.bold)),
+                  icon: const Text('📊', style: TextStyle(fontSize: 13)),
+                  label: const Text('Netler', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: const Color(0xFF38BDF8).withOpacity(0.5)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
+                OutlinedButton.icon(
+                  onPressed: () => PositiveParentingModal.show(context, child, widget.familyId),
+                  icon: const Text('🌱', style: TextStyle(fontSize: 13)),
+                  label: const Text('Pozitif Karne', style: TextStyle(color: FamTheme.emerald, fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: FamTheme.emerald.withOpacity(0.5)),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(width: 6),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _showSetStateModal(child),
@@ -678,7 +722,7 @@ class _LiveDashboardTabState extends State<LiveDashboardTab> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 OutlinedButton(
                   onPressed: () async {
                     // Quick Free / Unlock
@@ -690,10 +734,10 @@ class _LiveDashboardTabState extends State<LiveDashboardTab> {
                   },
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: Colors.white.withOpacity(0.15)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Kilidi Aç', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  child: const Text('Aç', style: TextStyle(color: Colors.white70, fontSize: 12)),
                 ),
               ],
             ),

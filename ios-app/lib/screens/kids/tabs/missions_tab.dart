@@ -17,6 +17,14 @@ import '../modals/regional_leaderboard_modal.dart';
 import '../modals/barter_market_modal.dart';
 import '../modals/weekly_contract_modal.dart';
 import '../modals/family_newspaper_modal.dart';
+import '../modals/code_unlock_modal.dart';
+import '../modals/mind_facts_modal.dart';
+import '../modals/study_rooms_modal.dart';
+import '../modals/micro_debate_modal.dart';
+import '../modals/micro_experiment_modal.dart';
+import '../modals/future_careers_modal.dart';
+import '../modals/time_capsule_modal.dart';
+import '../modals/reverse_mentoring_modal.dart';
 
 class MissionsTab extends StatefulWidget {
   final UserModel student;
@@ -478,6 +486,54 @@ class _MissionsTabState extends State<MissionsTab> {
             label: 'Aile Gazetesi',
             color: const Color(0xFF8B5CF6),
             onTap: () => FamilyNewspaperModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '💻',
+            label: 'Kodla Aç',
+            color: const Color(0xFF06B6D4),
+            onTap: () => CodeUnlockModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '🧠',
+            label: 'Günün Sırrı',
+            color: const Color(0xFFEC4899),
+            onTap: () => MindFactsModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '🤫',
+            label: 'Sessiz Oda',
+            color: const Color(0xFF10B981),
+            onTap: () => StudyRoomsModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '🎙️',
+            label: 'Münazara',
+            color: const Color(0xFFF97316),
+            onTap: () => MicroDebateModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '🧪',
+            label: 'Mikro Deney',
+            color: const Color(0xFF14B8A6),
+            onTap: () => MicroExperimentModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '🚀',
+            label: 'Meslekler',
+            color: const Color(0xFF6366F1),
+            onTap: () => FutureCareersModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '⏳',
+            label: 'Hafıza Kapsülü',
+            color: const Color(0xFFF59E0B),
+            onTap: () => TimeCapsuleModal.show(context, widget.student),
+          ),
+          _buildActionPill(
+            icon: '🛡️',
+            label: 'Tersine Mentorluk',
+            color: const Color(0xFF38BDF8),
+            onTap: () => ReverseMentoringModal.show(context, widget.student),
           ),
           _buildActionPill(
             icon: '🎓',
