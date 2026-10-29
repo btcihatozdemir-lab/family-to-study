@@ -264,3 +264,36 @@ $$;
 GRANT EXECUTE ON FUNCTION public.request_grace_break(TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_or_create_time_vault(TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.join_coach_group(TEXT) TO anon, authenticated, service_role;
+
+-- ----------------------------------------------------------------------------
+-- 11. ÖĞRETMEN / KOÇ HESAP VE VERİ SİLME (App Store Guideline 5.1.1(v))
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.delete_coach_account()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_auth_id UUID;
+BEGIN
+    v_auth_id := auth.uid();
+
+    IF v_auth_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'message', 'Oturum açmış koç bulunamadı.');
+    END IF;
+
+    -- Koçun açtığı grupları sil (ON DELETE CASCADE ile tüm alt kayıtlar silinir)
+    DELETE FROM public.coach_groups WHERE coach_auth_id = v_auth_id;
+
+    -- auth.users kaydını sil
+    BEGIN
+        DELETE FROM auth.users WHERE id = v_auth_id;
+    EXCEPTION WHEN OTHERS THEN
+        NULL;
+    END;
+
+    RETURN jsonb_build_object('success', true, 'message', 'Koç hesabınız ve tüm gruplarınız başarıyla silindi.');
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.delete_coach_account() TO anon, authenticated, service_role;

@@ -1,4 +1,5 @@
 import 'supabase_service.dart';
+import 'session_manager.dart';
 import '../models/coach_group_model.dart';
 
 class CoachService {
@@ -94,6 +95,29 @@ class CoachService {
     } catch (e) {
       print('[CoachService] fetchGroupStudentsSummary hata: $e');
       return [];
+    }
+  }
+
+  /// App Store Guideline 5.1.1(v) - Koç Hesabını ve Tüm Gruplarını Kalıcı Olarak Sil
+  static Future<Map<String, dynamic>> deleteCoachAccount() async {
+    try {
+      final res = await SupabaseService.client.rpc('delete_coach_account');
+      if (res != null && res['success'] == true) {
+        SupabaseService.setDeviceToken(null);
+        await SessionManager.clearSession();
+        await SupabaseService.client.auth.signOut();
+        return {
+          'success': true,
+          'message': res['message']?.toString() ?? 'Koç hesabınız ve tüm verileriniz kalıcı olarak silindi.'
+        };
+      }
+      return {
+        'success': false,
+        'message': res?['message']?.toString() ?? 'Silme işlemi gerçekleştirilemedi.'
+      };
+    } catch (e) {
+      print('[CoachService] deleteCoachAccount hata: $e');
+      return {'success': false, 'message': 'Hata oluştu: $e'};
     }
   }
 }

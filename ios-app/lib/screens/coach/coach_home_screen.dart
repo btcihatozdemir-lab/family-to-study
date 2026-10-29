@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/fam_theme.dart';
 import '../../services/coach_service.dart';
+import '../../services/supabase_service.dart';
 import '../../models/coach_group_model.dart';
+import 'coach_auth_screen.dart';
 
 class CoachHomeScreen extends StatefulWidget {
   const CoachHomeScreen({super.key});
@@ -120,6 +122,100 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
     );
   }
 
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FamTheme.surfaceElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: FamTheme.rose, size: 24),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Koç Hesabını Sil',
+                style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Dikkat: Bu işlem geri alınamaz!\n\n'
+          '• Oluşturduğunuz tüm kademe grupları silinir.\n'
+          '• Öğrenci bağlantıları ve ödev kayıtları tamamen temizlenir.\n'
+          '• Hesabınız App Store ve KVKK kurallarına uygun olarak anında yok edilir.',
+          style: TextStyle(color: FamTheme.textMuted, fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Vazgeç', style: TextStyle(color: Colors.white70)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _performDeleteAccount();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: FamTheme.rose,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text(
+              'Evet, Hesabımı Kalıcı Olarak Sil',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performDeleteAccount() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: FamTheme.rose),
+      ),
+    );
+
+    final res = await CoachService.deleteCoachAccount();
+
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      if (res['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: FamTheme.rose,
+            content: Text(res['message'] ?? 'Koç hesabınız kalıcı olarak silindi.'),
+          ),
+        );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const CoachAuthScreen()),
+          (route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: FamTheme.rose,
+            content: Text(res['message'] ?? 'Silme işlemi gerçekleştirilemedi.'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleSignOut() async {
+    await SupabaseService.client.auth.signOut();
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const CoachAuthScreen()),
+        (route) => false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -139,6 +235,48 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
             icon: const Icon(Icons.add_circle_outline_rounded, color: FamTheme.primaryLight),
             tooltip: 'Yeni Kademe Grubu Aç',
             onPressed: _showCreateGroupDialog,
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
+            color: FamTheme.surfaceElevated,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            onSelected: (val) {
+              if (val == 'logout') {
+                _handleSignOut();
+              } else if (val == 'delete_account') {
+                _showDeleteAccountDialog();
+              }
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                enabled: false,
+                child: Text(
+                  SupabaseService.client.auth.currentUser?.email ?? 'Koç Hesabı',
+                  style: const TextStyle(fontSize: 12, color: FamTheme.textMuted, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout_rounded, color: Colors.white70, size: 18),
+                    SizedBox(width: 10),
+                    Text('Oturumu Kapat', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete_account',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_forever_rounded, color: FamTheme.rose, size: 18),
+                    SizedBox(width: 10),
+                    Text('Hesabımı Kalıcı Olarak Sil', style: TextStyle(color: FamTheme.rose, fontSize: 13, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
