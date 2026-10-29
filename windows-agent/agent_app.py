@@ -107,12 +107,32 @@ class AgentApp:
         # 4. Serbest Zaman Durum Kapsülünü Göster
         self.floater.show()
 
+        # 5. Otomatik Güncelleme (OTA Auto-Updater) Servisini Başlat
+        self._updater = None
+        try:
+            from ota_updater import OTAUpdaterThread
+            def _get_client():
+                return getattr(self.telemetry, "_client", None)
+            self._updater = OTAUpdaterThread(
+                supabase_client_getter=_get_client,
+                check_interval_sec=1800,
+            )
+            self._updater.start()
+            print("[AgentApp] Otomatik güncelleme servisi (OTA Auto-Updater) aktif.")
+        except Exception as e:
+            print(f"[AgentApp] OTA Updater başlatma uyarısı: {e}")
+
     def stop(self) -> None:
         self._running = False
         self.system_guard.stop_hooks()
         self.watchdog.stop_guard()
         if hasattr(self.telemetry, "stop_realtime_listener"):
             self.telemetry.stop_realtime_listener()
+        if hasattr(self, "_updater") and self._updater:
+            try:
+                self._updater.stop()
+            except Exception:
+                pass
         print("[AgentApp] Ajan durduruldu.")
 
     # --------------------------------------------------------------------------

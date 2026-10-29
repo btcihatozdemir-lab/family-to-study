@@ -5,6 +5,7 @@ import 'services/session_manager.dart';
 import 'services/notification_service.dart';
 import 'services/audio_keep_alive_service.dart';
 import 'services/supabase_service.dart';
+import 'services/subscription_service.dart';
 import 'models/user_model.dart';
 import 'theme/fam_theme.dart';
 import 'theme/kids_theme.dart';
@@ -36,6 +37,13 @@ void main() async {
     await SupabaseService.init();
   } catch (e) {
     print('[Main] Supabase init error: $e');
+  }
+
+  // 3. RevenueCat Abonelik ve Paywall Servisini Başlat
+  try {
+    await SubscriptionService.init();
+  } catch (e) {
+    print('[Main] SubscriptionService init error: $e');
   }
 
   // Flavor bayrağı doğrudan verilmişse doğrudan ilgili uygulamayı başlat

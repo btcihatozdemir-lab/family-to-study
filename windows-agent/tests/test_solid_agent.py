@@ -226,6 +226,15 @@ class TestSolidArchitecture(unittest.TestCase):
         self.assertTrue(hasattr(CONFIG, "pair_device"))
         self.assertTrue(hasattr(CONFIG, "pair_with_code"))
 
+    def test_native_agent_architecture_has_no_webengine(self) -> None:
+        """Windows Ajanı saf native mimaride olmalı ve WebEngine zorunluluğu barındırmamalıdır."""
+        import agent_app
+        import ui.status_floater
+        import ui.focus_lock_overlay
+        self.assertTrue(hasattr(agent_app, "AgentApp"))
+        self.assertTrue(hasattr(ui.status_floater, "StatusFloater"))
+        self.assertTrue(hasattr(ui.focus_lock_overlay, "FocusLockOverlay"))
+
 
 if __name__ == "__main__":
     unittest.main()

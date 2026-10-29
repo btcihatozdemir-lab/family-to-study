@@ -140,13 +140,8 @@ class AgentConfig:
         """supabase_key alias for supabase_anon_key."""
         return self.supabase_anon_key
 
-    # Gömülü QWebEngineView içinde gösterilecek PWA Adresi
-    pwa_url: str = (
-        os.getenv("PWA_PRODUCTION_URL")
-        or os.getenv("FAMILY_PWA_URL")
-        or BUILD_PWA_URL
-        or "http://localhost:3000"
-    )
+    # PWA webview bağımlılığı kaldırıldı; %100 saf native PyQt6 mimarisine geçildi.
+    pwa_url: str = ""
 
     # Çoklu Aile (Multi-Tenant) ve Öğrenci/Cihaz Kimlikleri
     family_id: str = os.getenv("FAMILY_ID", "fam-ozdemir")
@@ -241,10 +236,6 @@ class AgentConfig:
             instance.family_id = str(auth_data["family_id"])
             instance.device_token = str(auth_data.get("device_token", ""))
             instance.is_paired = True
-            token = auth_data.get("magic_login_token")
-            if token:
-                clean_pwa = instance.pwa_url.split("?")[0].rstrip("/") + "/"
-                instance.pwa_url = f"{clean_pwa}?u={token}&auto_auth=true"
         else:
             instance.is_paired = has_device_auth()
 
@@ -289,9 +280,6 @@ class AgentConfig:
                     token = data.get("magic_login_token", "")
                     device_token = data.get("device_token", "")
                     self.device_token = device_token
-                    if token:
-                        clean_pwa = self.pwa_url.split("?")[0].rstrip("/") + "/"
-                        self.pwa_url = f"{clean_pwa}?u={token}&auto_auth=true"
                     self.is_paired = True
 
                     # 1. device_auth.json içine mühürle
@@ -370,9 +358,6 @@ class AgentConfig:
                     token = data.get("magic_login_token", "")
                     device_token = data.get("device_token", "")
                     self.device_token = device_token
-                    if token:
-                        clean_pwa = self.pwa_url.split("?")[0].rstrip("/") + "/"
-                        self.pwa_url = f"{clean_pwa}?u={token}&auto_auth=true"
                     self.is_paired = True
 
                     auth_record = {

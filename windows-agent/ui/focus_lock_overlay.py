@@ -21,6 +21,7 @@ try:
         QLabel,
         QFrame,
         QPushButton,
+        QProgressBar,
         QApplication,
     )
     from PyQt6.QtGui import QCloseEvent, QKeyEvent, QGuiApplication
@@ -113,6 +114,31 @@ class FocusLockOverlay(ILockEnforcer, IStateObserver):
         self._timer_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         card_layout.addWidget(self._timer_lbl)
 
+        # Odak İlerleme Çubuğu
+        self._progress_bar = QProgressBar()
+        self._progress_bar.setRange(0, 100)
+        self._progress_bar.setValue(0)
+        self._progress_bar.setTextVisible(False)
+        self._progress_bar.setFixedHeight(8)
+        self._progress_bar.setStyleSheet(f"""
+            QProgressBar {{
+                background-color: {AgentTheme.BG_ELEVATED};
+                border-radius: 4px;
+                border: none;
+            }}
+            QProgressBar::chunk {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {AgentTheme.PRIMARY}, stop:1 {AgentTheme.CYAN});
+                border-radius: 4px;
+            }}
+        """)
+        card_layout.addWidget(self._progress_bar)
+
+        # Motivasyon Cümlesi
+        self._quote_lbl = QLabel("🌟 'Başarı her gün atılan küçük adımların toplamıdır!'")
+        self._quote_lbl.setStyleSheet(f"font-size: 12px; font-style: italic; color: {AgentTheme.GOLD_LIGHT};")
+        self._quote_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        card_layout.addWidget(self._quote_lbl)
+
         # Kalkan Bilgisi
         self._shields_row = QLabel("🛡️ Günlük Kalkan: 3 / 3")
         self._shields_row.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {AgentTheme.CYAN};")
@@ -196,3 +222,20 @@ class FocusLockOverlay(ILockEnforcer, IStateObserver):
         mins = remaining_seconds // 60
         secs = remaining_seconds % 60
         self._timer_lbl.setText(f"{mins:02d}:{secs:02d}")
+
+        if total_seconds > 0 and hasattr(self, "_progress_bar"):
+            elapsed = max(0, total_seconds - remaining_seconds)
+            pct = int((elapsed / total_seconds) * 100)
+            self._progress_bar.setValue(min(100, max(0, pct)))
+
+        # Belirli aralıklarla motivasyon cümlesini yenile
+        if remaining_seconds % 60 == 0 and hasattr(self, "_quote_lbl"):
+            quotes = [
+                "🌟 'Büyük başarılar, küçük adımlarla başlar!'",
+                "🚀 'Odaklan! Görevi tamamla ve puanları topla!'",
+                "🧠 'Zihnini topla, kalkanlarını koru, zirveye çık!'",
+                "🏆 'Bugün harika bir odaklanma serisi yapıyorsun!'",
+                "⚡ 'Ders bittiğinde serbest zamanın tadını çıkaracaksın!'",
+            ]
+            idx = (remaining_seconds // 60) % len(quotes)
+            self._quote_lbl.setText(quotes[idx])

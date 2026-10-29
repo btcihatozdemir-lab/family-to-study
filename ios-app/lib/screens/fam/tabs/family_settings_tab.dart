@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/user_model.dart';
 import '../../../services/supabase_service.dart';
+import '../../../services/subscription_service.dart';
 import '../../../services/tts_service.dart';
 import '../../../theme/fam_theme.dart';
 
@@ -297,6 +298,19 @@ class _FamilySettingsTabState extends State<FamilySettingsTab> {
             ElevatedButton(
               onPressed: () async {
                 if (name.trim().isEmpty) return;
+
+                // Free Tier Limiti: En fazla 1 çocuk profil eklenebilir
+                final currentChildren = _members.where((m) => m.role == 'child').length;
+                if (role == 'child' && currentChildren >= 1 && !SubscriptionService.isPro) {
+                  Navigator.pop(ctx);
+                  SubscriptionService.withProCheck(
+                    context,
+                    onAllowed: () => _showAddMemberDialog(),
+                    featureTitle: '2. Çocuk ve Kardeş Ekleme',
+                  );
+                  return;
+                }
+
                 Navigator.pop(ctx);
                 await SupabaseService.addFamilyMember(
                   familyId: widget.familyId,
@@ -621,7 +635,18 @@ class _FamilySettingsTabState extends State<FamilySettingsTab> {
                 ],
               ),
               ElevatedButton.icon(
-                onPressed: _showAddMemberDialog,
+                onPressed: () {
+                  final currentChildren = _members.where((m) => m.role == 'child').length;
+                  if (currentChildren >= 1 && !SubscriptionService.isPro) {
+                    SubscriptionService.withProCheck(
+                      context,
+                      onAllowed: _showAddMemberDialog,
+                      featureTitle: 'Birden Fazla Çocuk Ekleme',
+                    );
+                  } else {
+                    _showAddMemberDialog();
+                  }
+                },
                 icon: const Icon(Icons.person_add_rounded, size: 16, color: Colors.white),
                 label: const Text('Birey Ekle', style: TextStyle(color: Colors.white, fontSize: 12)),
                 style: ElevatedButton.styleFrom(

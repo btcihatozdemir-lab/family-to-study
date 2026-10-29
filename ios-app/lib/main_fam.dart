@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'services/session_manager.dart';
 import 'services/notification_service.dart';
 import 'services/supabase_service.dart';
+import 'services/subscription_service.dart';
 import 'models/user_model.dart';
 import 'theme/fam_theme.dart';
 import 'screens/fam/fam_auth_screen.dart';
@@ -32,6 +33,13 @@ void main() async {
     await SupabaseService.init();
   } catch (e) {
     print('[MainFam] Supabase init error: $e');
+  }
+
+  // 3. RevenueCat Abonelik ve Paywall Servisini Başlat
+  try {
+    await SubscriptionService.init();
+  } catch (e) {
+    print('[MainFam] SubscriptionService init error: $e');
   }
 
   // UI'ı hemen başlat

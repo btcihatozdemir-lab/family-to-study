@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../models/user_model.dart';
 import '../../../services/supabase_service.dart';
+import '../../../services/subscription_service.dart';
+import '../../paywall_screen.dart';
 import '../../../theme/fam_theme.dart';
 
 class LiveDashboardTab extends StatefulWidget {
@@ -345,20 +347,61 @@ class _LiveDashboardTabState extends State<LiveDashboardTab> {
                 child: const Text('🛡️', style: TextStyle(fontSize: 26)),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Aile Akademisi Canlı Telemetri',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
+                    Row(
+                      children: [
+                        const Flexible(
+                          child: Text(
+                            'Aile Akademisi Canlı Telemetri',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: () => PaywallScreen.show(context),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: SubscriptionService.isPro
+                                  ? FamTheme.gold.withOpacity(0.25)
+                                  : Colors.white12,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: SubscriptionService.isPro
+                                    ? FamTheme.gold
+                                    : Colors.white24,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  SubscriptionService.isPro ? '👑 PRO' : '⭐ FREE',
+                                  style: TextStyle(
+                                    color: SubscriptionService.isPro
+                                        ? FamTheme.gold
+                                        : Colors.white70,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 2),
-                    Text(
+                    const SizedBox(height: 2),
+                    const Text(
                       'Öğrencilerinizin canlı durumlarını anlık yönetin, ekran kilidi uygulayın ve takdir bonusu dağıtın.',
                       style: TextStyle(
                         color: FamTheme.textMuted,
