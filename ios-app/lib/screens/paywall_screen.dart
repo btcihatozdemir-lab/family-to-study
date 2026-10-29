@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import '../services/subscription_service.dart';
 import '../theme/fam_theme.dart';
+import '../l10n/app_localizations.dart';
 
 /// ===========================================================================
 /// paywall_screen.dart - REVENUECAT PRO PAYWALL & REVERSE TRIAL MODAL
@@ -143,6 +144,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final annualPrice = _annualPackage?.storeProduct.priceString ?? '499,99 ₺';
     final monthlyPrice = _monthlyPackage?.storeProduct.priceString ?? '79,99 ₺';
 
@@ -214,9 +216,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
               const SizedBox(height: 12),
 
               // Ana Başlık
-              const Text(
-                'FamilyOS Pro ile Sınırları Kaldırın',
-                style: TextStyle(
+              Text(
+                l10n.paywallTitle,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
@@ -227,7 +229,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               const SizedBox(height: 6),
 
               Text(
-                '${widget.triggerFeature} ve tüm kısıtlamaları aşmak için 7 gün boyunca risksiz deneyin.',
+                '${widget.triggerFeature} • ${l10n.paywallSubtitle}',
                 style: const TextStyle(
                   color: FamTheme.textSecondary,
                   fontSize: 13,
@@ -329,7 +331,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                                 const SizedBox(width: 8),
                                 Text(
                                   _selectedPlan == 'annual'
-                                      ? '7 Gün Ücretsiz Dene ve Başlat'
+                                      ? l10n.freeTrialButton
                                       : 'Hemen Pro\'ya Yükselt',
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -363,9 +365,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 children: [
                   TextButton(
                     onPressed: _isPurchasing ? null : _handleRestore,
-                    child: const Text(
-                      'Satın Alımları Geri Yükle',
-                      style: TextStyle(color: FamTheme.primaryLight, fontSize: 12, fontWeight: FontWeight.bold),
+                    child: Text(
+                      l10n.restorePurchases,
+                      style: const TextStyle(color: FamTheme.primaryLight, fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const Text(' • ', style: TextStyle(color: Colors.white24)),

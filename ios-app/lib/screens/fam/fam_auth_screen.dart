@@ -4,6 +4,7 @@ import '../../theme/fam_theme.dart';
 import '../../services/supabase_service.dart';
 import '../../services/session_manager.dart';
 import '../../models/user_model.dart';
+import '../../l10n/app_localizations.dart';
 import 'fam_home_screen.dart';
 import 'onboarding_screen.dart';
 
@@ -215,6 +216,7 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: FamTheme.background,
       body: SafeArea(
@@ -230,7 +232,7 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
                   const SizedBox(height: 24),
 
                   // OAuth Butonları: Apple + Google
-                  _buildOAuthButtons(),
+                  _buildOAuthButtons(l10n),
                   const SizedBox(height: 18),
 
                   Row(
@@ -239,7 +241,7 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Text(
-                          'veya Ebeveyn Şifresi ile',
+                          l10n.orParentPin,
                           style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11, fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -267,9 +269,9 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
                       labelColor: Colors.white,
                       unselectedLabelColor: FamTheme.textMuted,
                       labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                      tabs: const [
-                        Tab(icon: Icon(Icons.shield_rounded, size: 18), text: 'Mevcut Aile'),
-                        Tab(icon: Icon(Icons.add_home_rounded, size: 18), text: 'Yeni Aile Kur'),
+                      tabs: [
+                        Tab(icon: const Icon(Icons.shield_rounded, size: 18), text: l10n.existingFamilyTab),
+                        Tab(icon: const Icon(Icons.add_home_rounded, size: 18), text: l10n.createFamilyTab),
                       ],
                     ),
                   ),
@@ -351,7 +353,7 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildOAuthButtons() {
+  Widget _buildOAuthButtons(AppLocalizations l10n) {
     return Column(
       children: [
         // App Store Guideline 4.8: Sign in with Apple
@@ -360,18 +362,18 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
           width: double.infinity,
           child: SignInWithAppleButton(
             onPressed: _isLoading ? null : _handleAppleSignIn,
-            text: 'Apple ile Ebeveyn Girişi Yap',
+            text: l10n.signInWithApple,
             style: SignInWithAppleButtonStyle.white,
             borderRadius: BorderRadius.circular(16),
           ),
         ),
         const SizedBox(height: 10),
-        _buildGoogleButton(),
+        _buildGoogleButton(l10n),
       ],
     );
   }
 
-  Widget _buildGoogleButton() {
+  Widget _buildGoogleButton(AppLocalizations l10n) {
     return SizedBox(
       height: 50,
       width: double.infinity,
@@ -384,14 +386,14 @@ class _FamAuthScreenState extends State<FamAuthScreen> with SingleTickerProvider
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 0,
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('🌐', style: TextStyle(fontSize: 18)),
-            SizedBox(width: 10),
+            const Text('🌐', style: TextStyle(fontSize: 18)),
+            const SizedBox(width: 10),
             Text(
-              'Google ile Ebeveyn Girişi Yap',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.white),
+              l10n.signInWithGoogle,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.white),
             ),
           ],
         ),
