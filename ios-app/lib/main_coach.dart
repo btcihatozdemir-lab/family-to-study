@@ -5,6 +5,7 @@ import 'services/notification_service.dart';
 import 'services/supabase_service.dart';
 import 'theme/fam_theme.dart';
 import 'screens/coach/coach_home_screen.dart';
+import 'screens/coach/coach_auth_screen.dart';
 import 'l10n/app_localizations.dart';
 
 /// ===========================================================================
@@ -61,7 +62,9 @@ class CoachApp extends StatelessWidget {
           surface: Color(0xFF1E293B),
         ),
       ),
-      home: const CoachHomeScreen(),
+      home: SupabaseService.client.auth.currentUser != null
+          ? const CoachHomeScreen()
+          : const CoachAuthScreen(),
     );
   }
 }
